@@ -10,18 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
+      # The workspace now contains Flutter packages (grow_render, tree_lab), so
+      # resolution needs the Flutter SDK. The pure packages remain pure — they
+      # just resolve through it.
+      - uses: subosito/flutter-action@v2
         with:
-          sdk: stable
+          channel: stable
 
       - name: Resolve workspace
-        run: dart pub get
+        run: flutter pub get
 
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze
-        run: dart analyze --fatal-infos
+        run: flutter analyze
 
       - name: Architecture boundaries
         run: dart run tools/arch_check/bin/arch_check.dart
@@ -34,10 +37,11 @@ jobs:
 
       - name: Tests
         run: |
-          for pkg in packages/grow_domain packages/grow_content packages/grow_sim; do
+          for pkg in packages/grow_domain packages/grow_content packages/grow_sim packages/grow_flora; do
             echo "== $pkg"
             (cd "$pkg" && dart test --reporter=expanded)
           done
+          (cd packages/grow_render && flutter test test/bench_test.dart)
 
       # Milestone M1: a headless 30-day simulation runs in CI and emits a CSV.
       # Exits non-zero if any balance ship criterion regresses, so the economy

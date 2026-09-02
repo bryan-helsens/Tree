@@ -10,19 +10,28 @@ const allowed = <String, Set<String>>{
   'grow_domain': {},
   'grow_sim': {'grow_domain', 'grow_content'},
   'grow_content': {'grow_domain'},
+  'grow_flora': {'grow_domain'},
+  'grow_render': {'grow_domain', 'grow_flora'},
+  'tree_lab': {'grow_domain', 'grow_flora', 'grow_render'},
   'balance_sim': {'grow_domain', 'grow_content', 'grow_sim'},
   'arch_check': {},
 };
 
+/// Packages that legitimately draw or build UI. Everything else must stay
+/// device-free so it can be tested headlessly.
+const rendererPackages = {'grow_render', 'tree_lab'};
+
 /// Banned in library code, with the reason a reviewer needs.
-const bannedImports = <({String needle, String why})>[
+const bannedImports = <({String needle, String why, Set<String> except})>[
   (
     needle: "import 'dart:io'",
     why: 'dart:io in a pure package — it must run in tests and on the web',
+    except: {},
   ),
   (
     needle: "import 'package:flutter/",
     why: 'Flutter in a pure package — the simulation must stay device-free',
+    except: rendererPackages,
   ),
 ];
 
@@ -70,6 +79,7 @@ void main() {
 
         if (!isLibrary) continue;
         for (final rule in bannedImports) {
+          if (rule.except.contains(pkg)) continue;
           if (raw.contains(rule.needle)) {
             failures.add('${file.path}\n      ${rule.why}');
           }

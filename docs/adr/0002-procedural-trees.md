@@ -1,6 +1,6 @@
 # ADR-0002 — Procedural tree generation over sprite growth stages
 
-**Status:** proposed · **Date:** 2026-09-02
+**Status:** superseded in part by the Week 2 art review · **Date:** 2026-09-02
 
 ## Context
 
@@ -37,3 +37,20 @@ is the project's top risk ([13 R1](../13-risks.md#r1--procedural-trees-look-like
 atlas and palette commissioned early; a **week-2 art go/no-go**; and a designed
 fallback (hand-drawn canopy sprites on a procedural branch skeleton) that
 preserves continuous growth and per-tree variety while restoring art control.
+
+---
+
+## Outcome — Week 2 art review, 2026-09-02
+
+**Skeleton: kept. Foliage: replaced.**
+
+Procedural generation delivered continuous growth, per-tree variety, species
+silhouettes and health-as-uniforms — all confirmed with rendered evidence. It
+did not deliver a canopy anyone would want to look at: six tuning iterations
+improved it each time without converging.
+
+The designed fallback is taken: generated branch skeleton, hand-drawn canopy
+masses tinted by the same `FoliageState` uniforms. Every claim above still
+holds; only the leaf primitives change.
+
+Full evidence and the art spec: [18 — Week 2 Art Review](../18-week-2-art-review.md).

@@ -8,9 +8,9 @@ import 'package:test/test.dart';
 /// Loads the on-disk content and hands back the first species map, so a test
 /// can corrupt one field and assert the loader rejects it.
 ({Map<String, Object?> bundle, Map<String, Object?> species}) mutableContent() {
-  final bundle = jsonDecode(
-    File('assets/content.json').readAsStringSync(),
-  ) as Map<String, Object?>;
+  final bundle =
+      jsonDecode(File('assets/content.json').readAsStringSync())
+          as Map<String, Object?>;
   final species =
       (bundle['species']! as List<Object?>).first as Map<String, Object?>;
   return (bundle: bundle, species: species);
