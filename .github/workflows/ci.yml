@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Resolve workspace
+        run: dart pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze
+        run: dart analyze --fatal-infos
+
+      - name: Architecture boundaries
+        run: dart run tools/arch_check/bin/arch_check.dart
+
+      - name: Content is in sync with its source
+        working-directory: packages/grow_content
+        run: |
+          dart run tool/embed_content.dart
+          git diff --exit-code lib/src/content_asset.g.dart
+
+      - name: Tests
+        run: |
+          for pkg in packages/grow_domain packages/grow_content packages/grow_sim; do
+            echo "== $pkg"
+            (cd "$pkg" && dart test --reporter=expanded)
+          done
+
+      # Milestone M1: a headless 30-day simulation runs in CI and emits a CSV.
+      # Exits non-zero if any balance ship criterion regresses, so the economy
+      # cannot drift without someone deciding that it should.
+      - name: Balance ship criteria
+        run: dart run tools/balance_sim/bin/balance_sim.dart --days 30 --csv balance.csv
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: balance-report
+          path: balance.csv

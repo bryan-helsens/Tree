@@ -196,7 +196,15 @@ the gentlest possible landing.
 
 ## 7. Dormancy — the long-absence model
 
-This exists because of Charter C1. Beyond 72 hours of catch-up:
+This exists because of Charter C1.
+
+> **Corrected in implementation.** Dormancy keys off `lastInteractionAt` — how
+> long the player has been away at each absolute instant — *not* off the size of
+> the catch-up window. Keying it off window size makes the result depend on how
+> the elapsed time was chunked, which breaks §1's composition property. See
+> [17 §1](17-phase-1-week-1-report.md).
+
+Once the player has been away more than 72 hours:
 
 ```
 W → asymptote toward W_rest = 25    with τ = 36 h

@@ -1,7 +1,14 @@
 # 04 — Core Data Models
 
-All domain types are `freezed` immutable classes with `const` constructors.
-Collections are `IList`/`IMap` from `fast_immutable_collections`.
+All domain types are immutable with `const` constructors.
+
+> **Corrected in implementation.** `grow_domain` uses **hand-written**
+> immutable classes, not `freezed`. The sketches below say `freezed`, but
+> [03](03-project-structure.md) requires `grow_domain` to have *zero*
+> dependencies, and that is the more load-bearing rule: it keeps the simulation
+> buildable anywhere with no codegen step. `freezed` remains the right choice
+> for app-layer state, where classes are wider and codegen earns its keep.
+> See [17 §4](17-phase-1-week-1-report.md).
 
 ## 1. Value objects
 

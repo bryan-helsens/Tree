@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "biomeBaseTemperature": 14.0,
+  "biomeBaseLight": 1.0,
+  "weather": {
+    "sunny": 42.0,
+    "cloudy": 34.0,
+    "rain": 24.0
+  },
+  "species": [
+    {
+      "id": "quercus_robur",
+      "nameKey": "species.quercus_robur",
+      "displayName": "Pedunculate Oak",
+      "scientificName": "Quercus robur",
+      "rarity": "common",
+      "family": "Fagaceae",
+      "nativeBiome": "woodland",
+
+      "water":       { "min": 45, "max": 70,  "tolLow": 30, "tolHigh": 20 },
+      "nutrition":   { "min": 40, "max": 65,  "tolLow": 35, "tolHigh": 18 },
+      "light":       { "min": 55, "max": 100, "tolLow": 25, "tolHigh": 25 },
+      "temperature": { "min": 5,  "max": 28,  "tolLow": 12, "tolHigh": 12 },
+
+      "waterUse": 1.0,
+      "nutrientUse": 1.0,
+      "absorption": 11.0,
+      "growthRate": 1.0,
+      "stageHours": [0.33, 4.0, 24.0, 72.0, 192.0, 600.0, 0.0],
+
+      "vigor": 1.1,
+      "resilience": 0.35,
+
+      "animalAttraction": 1.3,
+      "floweringChance": 0.15,
+      "pestResistance": 0.5,
+
+      "traits": ["slow_and_steady", "wildlife_magnet"],
+      "hiddenTraits": ["drought_hardy", "long_lived"]
+    },
+    {
+      "id": "betula_pendula",
+      "nameKey": "species.betula_pendula",
+      "displayName": "Silver Birch",
+      "scientificName": "Betula pendula",
+      "rarity": "common",
+      "family": "Betulaceae",
+      "nativeBiome": "woodland",
+
+      "water":       { "min": 50, "max": 75,  "tolLow": 26, "tolHigh": 18 },
+      "nutrition":   { "min": 30, "max": 55,  "tolLow": 32, "tolHigh": 14 },
+      "light":       { "min": 70, "max": 100, "tolLow": 22, "tolHigh": 25 },
+      "temperature": { "min": -5, "max": 24,  "tolLow": 12, "tolHigh": 12 },
+
+      "waterUse": 1.25,
+      "nutrientUse": 0.85,
+      "absorption": 12.0,
+      "growthRate": 1.35,
+      "stageHours": [0.33, 4.0, 24.0, 72.0, 192.0, 600.0, 0.0],
+
+      "vigor": 1.0,
+      "resilience": 0.25,
+
+      "animalAttraction": 0.9,
+      "floweringChance": 0.25,
+      "pestResistance": 0.4,
+
+      "traits": ["pioneer", "fast_grower"],
+      "hiddenTraits": ["light_hungry", "burns_easily"]
+    }
+  ]
+}

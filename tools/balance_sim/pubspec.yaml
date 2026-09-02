@@ -1,0 +1,16 @@
+name: balance_sim
+description: Headless N-day balance harness. Emits CSV for tuning the economy.
+publish_to: none
+version: 0.1.0
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  grow_content: ^0.1.0
+  grow_domain: ^0.1.0
+  grow_sim: ^0.1.0
+
+dev_dependencies:
+  lints: ^6.0.0

@@ -1,0 +1,16 @@
+name: grow_sim
+description: Part of GROW. See docs/03-project-structure.md for the dependency rules.
+publish_to: none
+version: 0.1.0
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  grow_domain: ^0.1.0
+  grow_content: ^0.1.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0

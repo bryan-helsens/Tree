@@ -1,0 +1,11 @@
+name: arch_check
+description: Fails the build if a package imports something the architecture forbids.
+publish_to: none
+version: 0.1.0
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dev_dependencies:
+  lints: ^6.0.0

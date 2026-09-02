@@ -2,7 +2,16 @@
 
 > A living forest that rewards you for putting your phone down.
 
-**Status: Phase 0 — Architecture. No implementation code yet. Awaiting approval.**
+**Status: Phase 1, Week 1 complete — Milestone M1.** Architecture approved
+2026-09-02. The simulation core, content pipeline and balance harness are built
+and under test; no UI yet.
+
+```
+dart pub get
+dart test                                          # in each package
+dart run tools/arch_check/bin/arch_check.dart      # dependency boundaries
+dart run tools/balance_sim/bin/balance_sim.dart    # 30-day balance report
+```
 
 GROW is a cozy ecosystem-management game. You raise a forest by managing water,
 nutrition, light and health across species with genuinely different needs. The
@@ -42,6 +51,8 @@ notifications per day.
 | [13 — Risks](docs/13-risks.md) | Ranked risk register with mitigations and owners |
 | [14 — Roadmap](docs/14-roadmap.md) | Phased, milestone-based delivery plan |
 | [15 — Testing](docs/15-testing-strategy.md) | Determinism properties, golden tests, balance harness |
+| [16 — Apple Entitlement](docs/16-apple-entitlement-request.md) | Draft justification and submission checklist — **week 1 action** |
+| [17 — Week 1 Report](docs/17-phase-1-week-1-report.md) | What building it changed in the approved design |
 
 ## Decision records
 

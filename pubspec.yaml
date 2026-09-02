@@ -1,0 +1,11 @@
+name: grow_workspace
+publish_to: none
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - packages/grow_domain
+  - packages/grow_content
+  - packages/grow_sim
+  - tools/balance_sim
+  - tools/arch_check
