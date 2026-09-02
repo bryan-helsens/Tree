@@ -7,6 +7,7 @@ library;
 
 export 'src/branch_rules.dart';
 export 'src/foliage.dart';
+export 'src/mature_tree.dart';
 export 'src/species_forms.dart';
 export 'src/tree_generator.dart';
 export 'src/tree_skeleton.dart';

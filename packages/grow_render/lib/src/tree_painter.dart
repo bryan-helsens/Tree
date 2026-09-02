@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:grow_flora/grow_flora.dart';
 
+import 'canopy_atlas.dart';
+
 /// Draws a generated tree onto a Canvas.
 ///
 /// Everything here is derived: branch shape from the skeleton, colour from the
@@ -13,10 +15,19 @@ class TreeRenderer {
   const TreeRenderer({
     this.wind = const WindField(),
     this.quality = RenderQuality.high,
+    this.atlas,
   });
 
   final WindField wind;
   final RenderQuality quality;
+
+  /// How many overlapping sprites each foliage cluster contributes.
+  static const int _spritesPerCluster = 3;
+
+  /// The canopy sprite atlas. When present the canopy is drawn as a single
+  /// batched `drawAtlas` call; without it the renderer falls back to
+  /// individual leaf paths, which is correct but far more expensive.
+  final CanopyAtlas? atlas;
 
   void paint(
     Canvas canvas,
@@ -30,7 +41,11 @@ class TreeRenderer {
     canvas.translate(origin.dx, origin.dy);
 
     _paintBranches(canvas, tree, form, state, timeSeconds);
-    _paintCanopy(canvas, tree, form, state, timeSeconds);
+    if (atlas != null) {
+      _paintCanopyBatched(canvas, tree, form, state, timeSeconds, atlas!);
+    } else {
+      _paintCanopy(canvas, tree, form, state, timeSeconds);
+    }
     if (state.sparkle > 0.45 && quality != RenderQuality.low) {
       _paintSparkle(canvas, tree, state, timeSeconds);
     }
@@ -127,7 +142,109 @@ class TreeRenderer {
     return path;
   }
 
-  // ─── canopy ────────────────────────────────────────────────────────────
+  // ─── canopy, batched ───────────────────────────────────────────────────
+
+  /// One `drawAtlas` call for the whole canopy.
+  ///
+  /// Each cluster becomes one sprite: an `RSTransform` for where and how big,
+  /// a source rect for which tile, and a colour that carries the tint. With
+  /// `BlendMode.modulate` against luminance-only tiles, the health uniforms
+  /// still drive every pixel of colour — the sprite supplies shape and
+  /// shading, the simulation supplies the hue.
+  ///
+  /// This replaces thousands of individual leaf paths with a single draw, and
+  /// it is why the atlas is part of the architecture rather than a later
+  /// optimisation.
+  void _paintCanopyBatched(
+    Canvas canvas,
+    TreeSkeleton tree,
+    SpeciesForm form,
+    FoliageState state,
+    double t,
+    CanopyAtlas atlas,
+  ) {
+    if (state.bareness >= 0.98 || tree.clusters.isEmpty) return;
+
+    final transforms = <RSTransform>[];
+    final rects = <Rect>[];
+    final colours = <Color>[];
+
+    final cap = quality.spriteCap;
+    final stride = tree.clusters.length > cap
+        ? (tree.clusters.length / cap).ceil()
+        : 1;
+
+    for (var i = 0; i < tree.clusters.length; i += stride) {
+      final c = tree.clusters[i];
+      if (c.openness <= 0.02 || c.leaves.isEmpty) continue;
+      // Thinning at high bareness drops whole clumps rather than dimming
+      // them, which is how a canopy actually empties.
+      if (state.bareness > 0 && (i % 7) / 7.0 < state.bareness) continue;
+
+      final sway =
+          wind.swayFor(t, c.anchor.y, c.branchIndex * 0.7, 1.5) *
+          (1.0 - state.wetness * 0.45);
+      final droop = state.droop * 9.0;
+
+      // Several small overlapping sprites per cluster rather than one large
+      // one. A single sprite per cluster reads as a row of separate spheres;
+      // overlapping them is what merges the canopy into one crown.
+      //
+      // The leaf positions already computed for the cluster make good
+      // anchors: they are distributed along and around the branch, so no
+      // extra placement work is needed.
+      final perCluster = math.min(_spritesPerCluster, c.leaves.length);
+      final leafStride = (c.leaves.length / perCluster).ceil();
+
+      for (var k = 0; k < c.leaves.length; k += leafStride) {
+        final anchor = c.leaves[k];
+        final size = c.radius * 1.55;
+        final tile =
+            ((c.branchIndex * 2654435761) + k * 40503) % atlas.tileCount;
+        // Rotation varies per sprite so a repeated tile is not readable.
+        final rotation =
+            (((c.branchIndex * 37 + k * 91) % 360) * math.pi / 180) +
+            sway * 0.02;
+
+        transforms.add(
+          RSTransform.fromComponents(
+            rotation: rotation,
+            scale: size / atlas.tileSize,
+            anchorX: atlas.tileSize / 2,
+            anchorY: atlas.tileSize / 2,
+            translateX: anchor.position.x + sway * 2.2,
+            translateY: anchor.position.y + droop,
+          ),
+        );
+        rects.add(atlas.tileRect(tile));
+
+        // Outer foliage catches the light; the interior sits back.
+        final shade = 0.80 + 0.20 * anchor.depth;
+        colours.add(
+          _scale(form.palette.leafColor(anchor.tone, state), shade).withValues(
+            alpha: (c.openness * (1.0 - state.bareness * 0.4)).clamp(0.0, 1.0),
+          ),
+        );
+      }
+    }
+
+    if (transforms.isEmpty) return;
+    canvas.drawAtlas(
+      atlas.image,
+      transforms,
+      rects,
+      colours,
+      BlendMode.modulate,
+      null,
+      Paint()..isAntiAlias = true,
+    );
+
+    if (state.flowering > 0.05) {
+      _paintBlossom(canvas, tree, form, state, t);
+    }
+  }
+
+  // ─── canopy, unbatched fallback ────────────────────────────────────────
 
   void _paintCanopy(
     Canvas canvas,
@@ -291,15 +408,18 @@ class TreeRenderer {
 }
 
 enum RenderQuality {
-  low(leafCap: 260),
-  medium(leafCap: 1100),
-  high(leafCap: 2600);
+  low(leafCap: 260, spriteCap: 40),
+  medium(leafCap: 1100, spriteCap: 110),
+  high(leafCap: 2600, spriteCap: 260);
 
-  const RenderQuality({required this.leafCap});
+  const RenderQuality({required this.leafCap, required this.spriteCap});
 
-  /// Hard ceiling on leaf instances per tree. The quality tier is chosen by a
-  /// startup benchmark and overridable in settings.
+  /// Ceiling on individual leaf paths, for the unbatched fallback path.
   final int leafCap;
+
+  /// Ceiling on canopy sprites per tree. These all go in one draw call, so
+  /// this can be far more generous than [leafCap].
+  final int spriteCap;
 }
 
 /// Ground, soil and its response to moisture. Kept next to the tree because
@@ -417,6 +537,7 @@ Future<ui.Image> renderTreeToImage({
   Color background = const Color(0xFFE8E6DE),
   bool drawGround = true,
   Bounds? frameTo,
+  CanopyAtlas? atlas,
 }) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
@@ -449,13 +570,9 @@ Future<ui.Image> renderTreeToImage({
   canvas.scale(scale);
   canvas.translate(-(b.minX + b.width / 2), 0);
 
-  const TreeRenderer().paint(
-    canvas,
-    tree,
-    form: form,
-    state: state,
-    timeSeconds: timeSeconds,
-  );
+  TreeRenderer(
+    atlas: atlas,
+  ).paint(canvas, tree, form: form, state: state, timeSeconds: timeSeconds);
   canvas.restore();
 
   return recorder.endRecording().toImage(width, height);

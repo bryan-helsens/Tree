@@ -12,7 +12,10 @@ import 'lab_state.dart';
 /// tree redrawing live, and a button that writes the result back out as JSON.
 ///
 ///   flutter run -d DEVICE -t tools/tree_lab/lib/main.dart
-void main() => runApp(const TreeLabApp());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const TreeLabApp());
+}
 
 class TreeLabApp extends StatelessWidget {
   const TreeLabApp({super.key});
@@ -47,6 +50,7 @@ class _LabHomeState extends State<_LabHome> {
   void initState() {
     super.initState();
     _state.addListener(_onChanged);
+    _state.loadAtlas();
   }
 
   void _onChanged() => setState(() {});

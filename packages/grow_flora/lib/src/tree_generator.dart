@@ -1,198 +1,117 @@
 import 'dart:math' as math;
 
 import 'branch_rules.dart';
+import 'mature_tree.dart';
 import 'tree_skeleton.dart';
 import 'vec2.dart';
 
-/// Generates a tree's form from `(rules, seed, growth01)`.
+/// Generates a tree's form from `(rules, seed)`, then reveals it with growth.
 ///
-/// Deterministic: the same three inputs always produce the same tree, which is
-/// what lets an individual keep its identity for the life of a save while
-/// still differing from every other tree of its species.
+/// The two halves are deliberately separate:
 ///
-/// Growth is continuous. Nothing pops: branches unfurl over a window, the
-/// trunk thickens, and the silhouette genuinely changes shape between stages.
+///  * [buildMature] produces the individual's permanent form. It depends only
+///    on the rules and the seed, so it can be built once and kept.
+///  * [grow] reveals a *prefix* of that form. It never rebuilds anything, so
+///    a branch cannot change shape, move, or shorten as the tree ages.
+///
+/// Growth advances a single front outward from the root, measured in arc
+/// length. A branch appears when the front reaches its attachment point and
+/// extends from there. That one rule replaces per-branch emergence thresholds
+/// and makes monotonic growth true by construction rather than by tuning.
 class TreeGenerator {
   const TreeGenerator();
 
-  static const double _emergeWindow = 0.12;
+  /// Shapes how the front advances. Below 1 so early growth is visible
+  /// quickly and late growth feels earned.
+  static const double _frontExponent = 0.80;
+
+  /// Thickening lags extension, which is how real trunks behave and why an
+  /// old tree reads as old rather than merely large.
+  static const double _widthExponent = 0.78;
 
   TreeSkeleton generate({
     required BranchRules rules,
     required int seed,
     required double growth01,
-  }) {
-    final g = growth01.clamp(0.0, 1.0).toDouble();
+  }) => grow(buildMature(rules: rules, seed: seed), growth01, rules);
 
-    // Height rises quickly at first and then slows, so early care feels
-    // responsive and late growth feels earned.
-    final scale = math.pow(g, 0.55).toDouble();
-    // Thickening lags extension, which is how real trunks behave and why an
-    // old tree reads as old rather than merely large.
-    final widthScale = math.pow(g, 0.78).toDouble();
+  // ─── the permanent form ────────────────────────────────────────────────
 
-    final branches = <Branch>[];
+  MatureTree buildMature({required BranchRules rules, required int seed}) {
+    final branches = <MatureBranch>[];
 
-    final trunk = _growBranch(
+    final trunk = _buildBranch(
       rules: rules,
       rng: _Rng(_branchSeed(seed, 1)),
       start: Vec2.zero,
       direction: const Vec2(0, -1),
-      length: rules.trunkLength * scale,
-      widthBase: rules.trunkWidth * widthScale,
-      widthTip: rules.trunkWidth * rules.taper * widthScale,
+      length: rules.trunkLength,
+      widthBase: rules.trunkWidth,
+      widthTip: rules.trunkWidth * rules.taper,
       depth: 0,
-      emergeAt: 0,
       sinuosity: rules.trunkSinuosity,
       parentIndex: -1,
       branchId: 1,
+      attachDistance: 0,
+      distanceFromRoot: 0,
     );
     branches.add(trunk);
 
-    _branchFrom(
+    _expand(
       rules: rules,
       seed: seed,
       parentId: 1,
       parent: trunk,
       parentIndex: 0,
       depth: 1,
-      growth01: g,
-      scale: scale,
-      widthScale: widthScale,
       branches: branches,
     );
 
-    // Keep only what has emerged at this growth value.
-    final visible = <Branch>[];
-    final sourceIndex = <int>[];
-    final hasVisibleChild = List<bool>.filled(branches.length, false);
-    // How far along each branch's children are. A parent hands its foliage
-    // over as they emerge rather than switching the instant they appear.
-    final childEmergence = List<double>.filled(branches.length, 0);
-    for (var i = 0; i < branches.length; i++) {
-      final b = branches[i];
-      if (g < b.emergeAt) continue;
-      final t = ((g - b.emergeAt) / _emergeWindow).clamp(0.0, 1.0);
-      if (b.parentIndex >= 0) {
-        hasVisibleChild[b.parentIndex] = true;
-        if (t > childEmergence[b.parentIndex]) {
-          childEmergence[b.parentIndex] = t;
-        }
-      }
-      visible.add(t >= 1.0 ? b : _partial(b, _easeOut(t)));
-      sourceIndex.add(i);
+    var maxPath = 0.0;
+    for (final b in branches) {
+      final reach = b.distanceFromRoot + b.matureLength;
+      if (reach > maxPath) maxPath = reach;
     }
 
-    // Leaves grow on terminal shoots — whatever is currently outermost.
-    //
-    // Attaching them by fixed depth instead leaves a seedling as a bare stick
-    // until it is old enough to reach that depth, which is both botanically
-    // wrong and the least appealing possible first impression.
-    final visibleClusters = <LeafCluster>[];
-    var maxVisibleDepth = 0;
-    for (final b in visible) {
-      if (b.depth > maxVisibleDepth) maxVisibleDepth = b.depth;
-    }
-
-    for (var vi = 0; vi < visible.length; vi++) {
-      final src = sourceIndex[vi];
-      final b = visible[vi];
-      final terminal = !hasVisibleChild[src];
-      // Foliage sits on the terminal shoots and on the outer structure that
-      // carries them. Terminal-only leaves ball up at the tips and read as
-      // pom-poms on bare sticks; carrying them one generation inward is what
-      // closes the canopy into a mass.
-      final carrier = b.depth >= maxVisibleDepth - 1;
-      if (!terminal && !carrier) continue;
-
-      // A branch whose children are still unfurling keeps its own leaves,
-      // fading them out as the children take over. Switching the moment a
-      // child appears makes the canopy jump inward and the whole tree
-      // visibly shrink — the exact pop continuous growth is meant to avoid.
-      final handover = 1.0 - childEmergence[src];
-      final density = terminal
-          ? 1.0
-          : (0.55 + 0.45 * handover).clamp(0.0, 1.0).toDouble();
-
-      final emergeAt = b.emergeAt;
-      final t = ((g - emergeAt) / (_emergeWindow * 1.6)).clamp(0.0, 1.0);
-      if (t <= 0.02) continue;
-      visibleClusters.add(
-        _leafCluster(
-          rules: rules,
-          rng: _Rng(_branchSeed(seed, b.branchId ^ 0x5BF03635)),
-          branch: b,
-          branchIndex: vi,
-          emergeAt: emergeAt,
-          growth01: g,
-          openness: _easeOut(t),
-          density: density,
-        ),
-      );
-    }
-
-    final points = [
-      for (final b in visible) ...b.spine,
-      for (final c in visibleClusters)
-        for (final l in c.leaves) l.position,
-    ];
-
-    return TreeSkeleton(
-      branches: visible,
-      clusters: visibleClusters,
-      bounds: Bounds.around(points.isEmpty ? [Vec2.zero] : points),
-      growth01: g,
-      trunkBase: Vec2.zero,
+    return MatureTree(
+      branches: branches,
+      maxPathLength: maxPath <= 0 ? 1 : maxPath,
+      trunkWidth: rules.trunkWidth,
     );
   }
 
-  // ─── recursion ─────────────────────────────────────────────────────────
-
-  void _branchFrom({
+  void _expand({
     required BranchRules rules,
     required int seed,
     required int parentId,
-    required Branch parent,
+    required MatureBranch parent,
     required int parentIndex,
     required int depth,
-    required double growth01,
-    required double scale,
-    required double widthScale,
-    required List<Branch> branches,
+    required List<MatureBranch> branches,
   }) {
-    if (depth > rules.maxDepth) {
-      return;
-    }
+    if (depth > rules.maxDepth) return;
 
     // Each branch draws from its own generator, keyed to a stable identity in
-    // the tree rather than to a position in one long shared sequence.
-    //
-    // With a single threaded generator, anything that changes how many random
-    // numbers an earlier branch consumes reshuffles every branch after it —
-    // and step count depends on branch length, which depends on growth. The
-    // tree would silently reshape itself as it grew instead of growing.
+    // the tree rather than to a position in one long shared sequence. A shared
+    // sequence makes any change upstream reshape everything downstream.
     final rng = _Rng(_branchSeed(seed, parentId));
     final childCount = rules.childrenPerBranch;
-    // Deeper structure appears later, so the tree gains complexity as it ages
-    // rather than merely scaling up.
-    final emergeAt =
-        (depth / (rules.maxDepth + 1.0)) * 0.78 + rng.range(-0.03, 0.03);
-
-    // Alternate sides, with enough jitter that it never reads as a zip.
     var side = rng.chance(0.5) ? 1.0 : -1.0;
 
     for (var i = 0; i < childCount; i++) {
-      // Children spawn along the upper part of the parent; the span below
+      // Children attach along the upper part of the parent; the span below
       // firstNodeAt stays clean.
       final span = 1.0 - rules.firstNodeAt;
-      final t =
-          rules.firstNodeAt +
-          span * ((i + 0.5) / childCount) +
-          rng.range(-0.05, 0.05);
-      final tc = t.clamp(0.05, 0.98).toDouble();
+      final fraction =
+          (rules.firstNodeAt +
+                  span * ((i + 0.5) / childCount) +
+                  rng.range(-0.05, 0.05))
+              .clamp(0.05, 0.98)
+              .toDouble();
+      final attach = fraction * parent.matureLength;
 
-      final origin = parent.pointAt(tc);
-      final parentDir = parent.directionAt(tc);
+      final origin = parent.pointAtDistance(attach);
+      final parentDir = _directionAtDistance(parent, attach);
 
       // Angles narrow with depth, so successive generations turn back toward
       // vertical and the canopy closes into a dome instead of spreading flat.
@@ -203,81 +122,70 @@ class TreeGenerator {
           decay;
       final sided =
           angle * side * (1.0 + rng.range(-rules.asymmetry, rules.asymmetry));
-      final direction = parentDir.rotated(sided);
-
-      final lengthFactor = rules.lengthDecay * rng.range(0.82, 1.18);
-      final childLength = parent.length * lengthFactor;
-      final wBase = parent.widthAt(tc) * rules.taper;
 
       final childId = _childId(parentId, i);
-      final child = _growBranch(
+      final wBase = _widthAtFraction(parent, fraction) * rules.taper;
+      final child = _buildBranch(
         rules: rules,
         rng: _Rng(_branchSeed(seed, childId)),
         start: origin,
-        direction: direction,
-        length: childLength,
+        direction: parentDir.rotated(sided),
+        length: parent.matureLength * rules.lengthDecay * rng.range(0.82, 1.18),
         widthBase: wBase,
         widthTip: wBase * rules.taper,
         depth: depth,
-        emergeAt: emergeAt,
         sinuosity: rules.trunkSinuosity * 0.6,
         parentIndex: parentIndex,
         branchId: childId,
+        attachDistance: attach,
+        distanceFromRoot: parent.distanceFromRoot + attach,
       );
       final childIndex = branches.length;
       branches.add(child);
 
-      _branchFrom(
+      _expand(
         rules: rules,
         seed: seed,
         parentId: childId,
         parent: child,
         parentIndex: childIndex,
         depth: depth + 1,
-        growth01: growth01,
-        scale: scale,
-        widthScale: widthScale,
         branches: branches,
       );
-
       side = -side;
     }
 
-    // Apical extension: the parent continues past its last child. Without
-    // this a tree is a bush of even forks; with it, it has a leader.
-    if (depth <= rules.maxDepth && rules.apicalExtension > 0.01) {
-      final tipDir = parent.directionAt(1.0);
-      final leaderLength =
-          parent.length * rules.apicalExtension * rng.range(0.85, 1.15);
-      final wBase = parent.widthTip;
+    // Apical extension: the parent continues past its last child. Without it
+    // a tree is a bush of even forks; with it, it has a leader.
+    if (rules.apicalExtension > 0.01) {
       final leaderId = _childId(parentId, 15);
-      final leader = _growBranch(
+      final wBase = parent.widthTip;
+      final leader = _buildBranch(
         rules: rules,
         rng: _Rng(_branchSeed(seed, leaderId)),
-        start: parent.tip,
-        direction: tipDir,
-        length: leaderLength,
+        start: parent.spine.last,
+        direction: _directionAtDistance(parent, parent.matureLength),
+        length:
+            parent.matureLength * rules.apicalExtension * rng.range(0.85, 1.15),
         widthBase: wBase,
         widthTip: wBase * rules.taper,
         depth: depth,
-        emergeAt: emergeAt,
         sinuosity: rules.trunkSinuosity * 0.5,
         parentIndex: parentIndex,
         branchId: leaderId,
+        attachDistance: parent.matureLength,
+        distanceFromRoot: parent.distanceFromRoot + parent.matureLength,
       );
       final leaderIndex = branches.length;
       branches.add(leader);
 
-      _branchFrom(
+      _expand(
         rules: rules,
         seed: seed,
         parentId: leaderId,
         parent: leader,
         parentIndex: leaderIndex,
         depth: depth + 1,
-        growth01: growth01,
-        scale: scale,
-        widthScale: widthScale,
         branches: branches,
       );
     }
@@ -289,7 +197,7 @@ class TreeGenerator {
   /// it, and noise keeps it from being a clean arc. Thin branches feel all
   /// three more strongly than thick ones, which is why twigs curl and trunks
   /// stand.
-  Branch _growBranch({
+  MatureBranch _buildBranch({
     required BranchRules rules,
     required _Rng rng,
     required Vec2 start,
@@ -298,17 +206,18 @@ class TreeGenerator {
     required double widthBase,
     required double widthTip,
     required int depth,
-    required double emergeAt,
     required double sinuosity,
     required int parentIndex,
     required int branchId,
+    required double attachDistance,
+    required double distanceFromRoot,
   }) {
-    // Fixed per depth, deliberately not derived from length: a growth-varying
-    // step count would change how many random draws this branch makes and
-    // reshape it as the tree grew.
+    // Fixed per depth, deliberately not derived from length: a length-varying
+    // step count would change how many random draws this branch makes.
     final steps = (12 - depth).clamp(4, 12);
     final stepLength = length / steps;
     final spine = <Vec2>[start];
+    final cumulative = <double>[0];
 
     var pos = start;
     var dir = direction.normalized;
@@ -317,16 +226,14 @@ class TreeGenerator {
 
     for (var i = 0; i < steps; i++) {
       final t = (i + 1) / steps;
-
-      // Light: rotate the direction toward straight up.
       const up = Vec2(0, -1);
-      final toUp = _signedAngleBetween(dir, up);
-      final photo = toUp * rules.phototropism * 0.16 * (0.35 + 0.65 * thinness);
-
-      // Gravity: sag grows along the branch and with thinness.
+      final photo =
+          _signedAngleBetween(dir, up) *
+          rules.phototropism *
+          0.16 *
+          (0.35 + 0.65 * thinness);
       final droop =
           rules.gravityDroop * 0.18 * t * thinness * (dir.x >= 0 ? 1.0 : -1.0);
-
       final noise =
           rng.range(-1.0, 1.0) * rules.wobble * 0.14 +
           rng.range(-1.0, 1.0) * sinuosity * 0.10;
@@ -334,20 +241,147 @@ class TreeGenerator {
       dir = dir.rotated(photo + droop + noise).normalized;
       pos = pos + dir * stepLength;
       spine.add(pos);
+      cumulative.add(cumulative.last + stepLength);
     }
 
-    return Branch(
+    return MatureBranch(
       spine: spine,
+      cumulative: cumulative,
       widthBase: widthBase,
       widthTip: widthTip,
       depth: depth,
-      emergeAt: emergeAt.clamp(0.0, 1.0).toDouble(),
+      parentIndex: parentIndex,
+      branchId: branchId,
+      attachDistance: attachDistance,
+      distanceFromRoot: distanceFromRoot,
       phase: rng.range(0, math.pi * 2),
       // Thin branches move most. One expression drives every twig in the
       // world's response to the shared wind field.
       flex: (1.0 / (widthBase + 0.6)).clamp(0.0, 3.0).toDouble(),
-      parentIndex: parentIndex,
-      branchId: branchId,
+    );
+  }
+
+  // ─── revealing it ──────────────────────────────────────────────────────
+
+  TreeSkeleton grow(MatureTree mature, double growth01, BranchRules rules) {
+    final g = growth01.clamp(0.0, 1.0).toDouble();
+    final front = mature.maxPathLength * math.pow(g, _frontExponent).toDouble();
+    final widthScale = math.pow(g, _widthExponent).toDouble();
+
+    final visible = <Branch>[];
+    final sourceIndex = <int>[];
+    final hasVisibleChild = List<bool>.filled(mature.branches.length, false);
+    final childExtension = List<double>.filled(mature.branches.length, 0);
+
+    for (var i = 0; i < mature.branches.length; i++) {
+      final m = mature.branches[i];
+      // The front has to reach a branch's attachment point before it exists.
+      // No emergence threshold, no per-branch bookkeeping: one rule.
+      final grown = front - m.distanceFromRoot;
+      if (grown <= 0) continue;
+
+      final length = math.min(grown, m.matureLength);
+      final extension = (length / m.matureLength).clamp(0.0, 1.0).toDouble();
+
+      if (m.parentIndex >= 0) {
+        hasVisibleChild[m.parentIndex] = true;
+        if (extension > childExtension[m.parentIndex]) {
+          childExtension[m.parentIndex] = extension;
+        }
+      }
+
+      visible.add(_prefix(m, length, extension, widthScale));
+      sourceIndex.add(i);
+    }
+
+    var maxDepth = 0;
+    for (final b in visible) {
+      if (b.depth > maxDepth) maxDepth = b.depth;
+    }
+
+    // Foliage sits on the terminal shoots and on the outer structure that
+    // carries them. Terminal-only leaves ball up at the tips and read as
+    // pom-poms on bare sticks.
+    final clusters = <LeafCluster>[];
+    for (var vi = 0; vi < visible.length; vi++) {
+      final src = sourceIndex[vi];
+      final b = visible[vi];
+      final terminal = !hasVisibleChild[src];
+      final carrier = b.depth >= maxDepth - 1;
+      if (!terminal && !carrier) continue;
+
+      // A branch whose children are still unfurling keeps its own leaves,
+      // handing them over as the children take up the space.
+      final handover = 1.0 - childExtension[src];
+      final density = terminal
+          ? 1.0
+          : (0.55 + 0.45 * handover).clamp(0.0, 1.0).toDouble();
+      final openness = _easeOut(b.extension);
+      if (openness <= 0.02) continue;
+
+      clusters.add(
+        _leafCluster(
+          rules: rules,
+          rng: _Rng(_branchSeed(b.branchId, 0x5BF03635)),
+          branch: b,
+          branchIndex: vi,
+          growth01: g,
+          openness: openness,
+          density: density,
+        ),
+      );
+    }
+
+    final points = [
+      for (final b in visible) ...b.spine,
+      for (final c in clusters)
+        for (final l in c.leaves) l.position,
+    ];
+
+    return TreeSkeleton(
+      branches: visible,
+      clusters: clusters,
+      bounds: Bounds.around(points.isEmpty ? [Vec2.zero] : points),
+      growth01: g,
+      trunkBase: Vec2.zero,
+    );
+  }
+
+  /// The first [length] of a mature branch. A prefix, never a rescale — the
+  /// points that exist are exactly the mature points.
+  Branch _prefix(
+    MatureBranch m,
+    double length,
+    double extension,
+    double widthScale,
+  ) {
+    final spine = <Vec2>[m.spine.first];
+    for (var i = 1; i < m.spine.length; i++) {
+      if (m.cumulative[i] >= length) {
+        final span = m.cumulative[i] - m.cumulative[i - 1];
+        final t = span <= 0 ? 0.0 : (length - m.cumulative[i - 1]) / span;
+        spine.add(m.spine[i - 1].lerpTo(m.spine[i], t));
+        break;
+      }
+      spine.add(m.spine[i]);
+    }
+    if (spine.length < 2) spine.add(m.spine.first + const Vec2(0, -0.4));
+
+    final wBase = m.widthBase * widthScale;
+    final wFull = m.widthTip * widthScale;
+    return Branch(
+      spine: spine,
+      widthBase: wBase,
+      // A branch still extending tapers to a point: it is a growing shoot,
+      // not a blunt cut.
+      widthTip:
+          (wBase + (wFull - wBase) * extension) * (0.25 + 0.75 * extension),
+      depth: m.depth,
+      extension: extension,
+      phase: m.phase,
+      flex: m.flex,
+      parentIndex: m.parentIndex,
+      branchId: m.branchId,
     );
   }
 
@@ -356,10 +390,9 @@ class TreeGenerator {
     required _Rng rng,
     required Branch branch,
     required int branchIndex,
-    required double emergeAt,
     required double growth01,
-    double openness = 1.0,
-    double density = 1.0,
+    required double openness,
+    required double density,
   }) {
     // Generous overlap: neighbouring clusters have to merge, or the canopy
     // reads as separate balls of foliage.
@@ -375,17 +408,15 @@ class TreeGenerator {
 
     final leaves = <Leaf>[];
     for (var i = 0; i < count; i++) {
-      // Bias placement toward the outer end of the branch, so the canopy
-      // interior stays open the way a self-shaded canopy is.
+      // Bias placement toward the outer end, so the canopy interior stays
+      // open the way a self-shaded canopy is.
       final along = math
           .pow(rng.unit(), 1.0 - rules.canopyBias * 0.6)
           .toDouble()
           .clamp(0.0, 1.0);
-      // Spread along most of the shoot, not just its last third.
       final base = branch.pointAt(0.12 + 0.88 * along);
       final spread = radius * math.sqrt(rng.unit());
-      final theta = rng.range(0, math.pi * 2);
-      final pos = base + Vec2.fromAngle(theta, spread);
+      final pos = base + Vec2.fromAngle(rng.range(0, math.pi * 2), spread);
 
       leaves.add(
         Leaf(
@@ -403,44 +434,31 @@ class TreeGenerator {
       anchor: branch.pointAt(0.7),
       radius: radius,
       leaves: leaves,
-      emergeAt: emergeAt.clamp(0.0, 1.0).toDouble(),
+      openness: openness,
       branchIndex: branchIndex,
-    );
-  }
-
-  Branch _partial(Branch b, double t) {
-    final target = b.length * t;
-    final spine = <Vec2>[b.spine.first];
-    var acc = 0.0;
-    for (var i = 1; i < b.spine.length; i++) {
-      final seg = (b.spine[i] - b.spine[i - 1]).length;
-      if (acc + seg >= target) {
-        final r = seg == 0 ? 0.0 : (target - acc) / seg;
-        spine.add(b.spine[i - 1].lerpTo(b.spine[i], r));
-        break;
-      }
-      acc += seg;
-      spine.add(b.spine[i]);
-    }
-    if (spine.length < 2) spine.add(b.spine.first + const Vec2(0, -0.5));
-    return Branch(
-      spine: spine,
-      widthBase: b.widthBase,
-      widthTip:
-          (b.widthBase + (b.widthTip - b.widthBase) * t) * (0.25 + 0.75 * t),
-      depth: b.depth,
-      emergeAt: b.emergeAt,
-      phase: b.phase,
-      flex: b.flex,
-      parentIndex: b.parentIndex,
-      branchId: b.branchId,
     );
   }
 }
 
+Vec2 _directionAtDistance(MatureBranch b, double distance) {
+  for (var i = 1; i < b.cumulative.length; i++) {
+    if (b.cumulative[i] >= distance) {
+      return (b.spine[i] - b.spine[i - 1]).normalized;
+    }
+  }
+  return (b.spine.last - b.spine[b.spine.length - 2]).normalized;
+}
+
+double _widthAtFraction(MatureBranch b, double fraction) =>
+    b.widthBase + (b.widthTip - b.widthBase) * fraction;
+
+double _easeOut(double t) => 1 - math.pow(1 - t, 2.2).toDouble();
+
+double _signedAngleBetween(Vec2 from, Vec2 to) =>
+    math.atan2(from.x * to.y - from.y * to.x, from.x * to.x + from.y * to.y);
+
 /// A stable identity for a branch: the parent's id with the child index mixed
-/// in, so a branch's identity depends on where it sits in the tree and nothing
-/// else.
+/// in, so identity depends on position in the tree and nothing else.
 int _childId(int parentId, int childIndex) =>
     (parentId * 17 + childIndex + 1) & 0x3FFFFFFF;
 
@@ -450,16 +468,6 @@ int _branchSeed(int treeSeed, int branchId) {
   h = (h * 0x85EBCA6B) & 0xFFFFFFFF;
   h ^= h >>> 13;
   return h & 0xFFFFFFFF;
-}
-
-double _easeOut(double t) => 1 - math.pow(1 - t, 2.2).toDouble();
-
-double _signedAngleBetween(Vec2 from, Vec2 to) {
-  final a = math.atan2(
-    from.x * to.y - from.y * to.x,
-    from.x * to.x + from.y * to.y,
-  );
-  return a;
 }
 
 /// Seeded generator. `grow_flora` must never use unseeded randomness: a tree

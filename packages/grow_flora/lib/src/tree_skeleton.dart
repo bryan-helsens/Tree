@@ -11,7 +11,7 @@ class Branch {
     required this.widthBase,
     required this.widthTip,
     required this.depth,
-    required this.emergeAt,
+    required this.extension,
     required this.phase,
     required this.flex,
     required this.parentIndex,
@@ -25,9 +25,9 @@ class Branch {
   final double widthTip;
   final int depth;
 
-  /// The `growth01` at which this branch starts to appear. Branches unfurl
-  /// over a window rather than popping into existence.
-  final double emergeAt;
+  /// Fraction of this branch's mature length that has grown, 0..1. A branch
+  /// at 0.4 is not a shorter branch — it is a prefix of the same branch.
+  final double extension;
 
   /// Per-branch wind phase, so the canopy does not move as one rigid block.
   final double phase;
@@ -101,14 +101,17 @@ class LeafCluster {
     required this.anchor,
     required this.radius,
     required this.leaves,
-    required this.emergeAt,
+    required this.openness,
     required this.branchIndex,
   });
 
   final Vec2 anchor;
   final double radius;
   final List<Leaf> leaves;
-  final double emergeAt;
+
+  /// How far this cluster has opened, 0..1. Drives sprite scale and alpha.
+  final double openness;
+
   final int branchIndex;
 }
 

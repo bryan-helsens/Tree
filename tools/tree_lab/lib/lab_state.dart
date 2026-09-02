@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:grow_flora/grow_flora.dart';
+import 'package:grow_render/grow_render.dart';
 
 /// Everything Tree Lab can change, and the derived skeleton.
 ///
@@ -25,6 +27,7 @@ class LabState extends ChangeNotifier {
   FoliageState _foliage = const FoliageState();
 
   TreeSkeleton? _skeleton;
+  CanopyAtlas? _atlas;
 
   SpeciesForm get form => _form;
   BranchRules get rules => _rules;
@@ -36,6 +39,18 @@ class LabState extends ChangeNotifier {
   double get windAmplitude => _windAmplitude;
   FoliageState get foliage => _foliage;
   TreeSkeleton get skeleton => _skeleton!;
+
+  /// The canopy atlas, once loaded. Tuning against the unbatched fallback
+  /// would mean tuning a look the game does not ship.
+  CanopyAtlas? get atlas => _atlas;
+
+  Future<void> loadAtlas() async {
+    final data = await rootBundle.load(
+      'packages/grow_render/assets/canopy_oak.png',
+    );
+    _atlas = await CanopyAtlas.decode(data.buffer.asUint8List());
+    notifyListeners();
+  }
 
   void selectSpecies(SpeciesForm f) {
     _form = f;

@@ -99,7 +99,10 @@ class _StagePainter extends CustomPainter {
         canvas.drawPath(path, wire);
       }
     } else {
-      TreeRenderer(wind: WindField(amplitude: state.windAmplitude)).paint(
+      TreeRenderer(
+        wind: WindField(amplitude: state.windAmplitude),
+        atlas: state.atlas,
+      ).paint(
         canvas,
         tree,
         form: state.form,

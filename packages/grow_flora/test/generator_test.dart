@@ -70,88 +70,81 @@ void main() {
       }
     });
 
-    // OPEN DEFECT — Week 3. Children attach at a *fraction* along their
-    // parent, so as the parent extends the attachment point travels with it:
-    // measured at up to 92px (oak) and 128px (birch) across a full growth
-    // sweep. Branches visibly migrate along their parents as the tree grows,
-    // which undermines the core "watch it grow" promise.
-    //
-    // The fix is to attach at an absolute distance from the parent's base and
-    // derive the fraction from the parent's current length. That also gives a
-    // better emergence rule for free — a child appears once its parent has
-    // grown far enough to reach it — replacing the emergeAt threshold.
-    //
-    // Left failing rather than bounded at the measured value: a test that
-    // passes at "the branch moved six times its own length" guards nothing.
-    test(
-      'a branch keeps its identity as the tree grows',
-      skip: 'open defect: branches slide along their parent — see Week 3',
-      () {
-        // Same branchId, same shape: growth extends a branch, it does not
-        // replace it with a different one.
-        final young = gen.generate(
-          rules: oakForm.rules,
-          seed: 9,
-          growth01: 0.5,
-        );
-        final old = gen.generate(rules: oakForm.rules, seed: 9, growth01: 0.9);
-        final byId = {for (final b in old.branches) b.branchId: b};
-        var matched = 0;
-        for (final b in young.branches) {
-          final grown = byId[b.branchId];
-          if (grown == null) continue;
-          matched++;
-          expect(
-            grown.length,
-            greaterThanOrEqualTo(b.length - 0.01),
-            reason: 'branch ${b.branchId} got shorter',
-          );
-
-          // KNOWN LIMITATION — children attach at a *fraction* along their
-          // parent, so as the parent extends the attachment point slides
-          // outward with it. Botanically a branch stays where it emerged.
-          //
-          // The fix is to store the attachment as an absolute distance from the
-          // parent's base and derive the fraction from the parent's current
-          // length; that also replaces the emergeAt threshold with a more
-          // natural "the parent has grown far enough to reach this node".
-          // Scheduled for Week 3. This bound stops it getting any worse.
-          expect(
-            (grown.base - b.base).length,
-            lessThan(20.0),
-            reason: 'branch ${b.branchId} slid too far along its parent',
-          );
+    test('a branch never moves once it has emerged', () {
+      // Was an open defect: children attached at a *fraction* along their
+      // parent, so the attachment point travelled outward as the parent
+      // extended — measured at up to 92px (oak) and 128px (birch) across a
+      // growth sweep. Branches visibly migrated along their parents.
+      //
+      // Attachment is now an absolute arc length on the mature form, so a
+      // base is fixed from the moment the growth front reaches it. The bound
+      // is exact equality, not a tolerance.
+      for (final form in [oakForm, birchForm]) {
+        for (var seed = 0; seed < 30; seed++) {
+          final seen = <int, Vec2>{};
+          for (var i = 1; i <= 40; i++) {
+            final t = gen.generate(
+              rules: form.rules,
+              seed: seed,
+              growth01: i / 40,
+            );
+            for (final b in t.branches) {
+              final was = seen[b.branchId];
+              if (was != null) {
+                expect(
+                  (b.base - was).length,
+                  lessThan(1e-9),
+                  reason:
+                      '${form.id} seed $seed: branch ${b.branchId} '
+                      'moved after emerging',
+                );
+              }
+              seen[b.branchId] = b.base;
+            }
+          }
         }
-        expect(matched, greaterThan(5));
-      },
-    );
-
-    test('branch count never decreases with growth', () {
-      var last = 0;
-      for (var g = 0.05; g <= 1.0; g += 0.05) {
-        final n = gen
-            .generate(rules: oakForm.rules, seed: 7, growth01: g)
-            .branches
-            .length;
-        expect(n, greaterThanOrEqualTo(last));
-        last = n;
       }
     });
 
-    test('nothing pops: an emerging branch starts short and extends', () {
-      // Find a growth value where some branch is mid-emergence, and check the
-      // very next step has it longer rather than appearing at full size.
-      final a = gen.generate(rules: oakForm.rules, seed: 7, growth01: 0.30);
-      final b = gen.generate(rules: oakForm.rules, seed: 7, growth01: 0.34);
-      expect(b.branches.length, greaterThanOrEqualTo(a.branches.length));
-      final shared = a.branches.length;
-      var anyExtended = false;
-      for (var i = 0; i < shared; i++) {
-        if (b.branches[i].length > a.branches[i].length + 0.01) {
-          anyExtended = true;
+    test('a branch only ever extends, never shortens or reshapes', () {
+      for (final form in [oakForm, birchForm]) {
+        for (var seed = 0; seed < 20; seed++) {
+          final lastLength = <int, double>{};
+          final firstSpine = <int, List<Vec2>>{};
+          for (var i = 1; i <= 40; i++) {
+            final t = gen.generate(
+              rules: form.rules,
+              seed: seed,
+              growth01: i / 40,
+            );
+            for (final b in t.branches) {
+              final prev = lastLength[b.branchId];
+              if (prev != null) {
+                expect(
+                  b.length,
+                  greaterThanOrEqualTo(prev - 1e-9),
+                  reason: 'branch ${b.branchId} shortened',
+                );
+              }
+              lastLength[b.branchId] = b.length;
+
+              // The points that exist must be the same points: growth reveals
+              // a prefix of the mature spine, it does not rescale it.
+              final earlier = firstSpine[b.branchId];
+              if (earlier != null) {
+                for (var k = 0; k < earlier.length - 1; k++) {
+                  expect(
+                    (b.spine[k] - earlier[k]).length,
+                    lessThan(1e-9),
+                    reason: 'branch ${b.branchId} point $k moved',
+                  );
+                }
+              }
+              firstSpine[b.branchId] = b.spine;
+            }
+          }
         }
       }
-      expect(anyExtended, isTrue);
     });
   });
 

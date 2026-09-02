@@ -29,13 +29,15 @@ const oakForm = SpeciesForm(
     trunkSinuosity: 0.50,
     // High enough that outer branches stay substantial. Decaying length too
     // fast leaves a tuft of twigs on a bare pole rather than a crown.
-    lengthDecay: 0.79,
+    // Tighter than it looks: at 0.79 the outer branches stayed long enough to
+    // reach away from the crown and leave a gap between lobes.
+    lengthDecay: 0.745,
     taper: 0.74,
     branchAngleMin: 28,
     branchAngleMax: 50,
     angleJitter: 13,
     childrenPerBranch: 2,
-    firstNodeAt: 0.32,
+    firstNodeAt: 0.37,
     apicalExtension: 0.52,
     // Strong enough to curl the outer structure back upward. Without this an
     // oak spreads into a flat mushroom instead of the dome it is known for.
@@ -46,7 +48,8 @@ const oakForm = SpeciesForm(
     leafDensity: 13,
     leafSize: 4.4,
     canopyBias: 0.55,
-    asymmetry: 0.24,
+    // Some lopsidedness is true to an oak; this much was leaving holes.
+    asymmetry: 0.14,
     angleDecay: 0.74,
   ),
   palette: FoliagePalette(

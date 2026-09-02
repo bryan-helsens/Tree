@@ -2,7 +2,7 @@
 
 > A living forest that rewards you for putting your phone down.
 
-**Status: Phase 1, Week 2 complete — art review passed with a scope change.** Architecture approved
+**Status: Phase 1, Week 3 complete — hybrid Oak validated.** Architecture approved
 2026-09-02. The simulation core, content pipeline and balance harness are built
 and under test; no UI yet.
 
@@ -54,6 +54,7 @@ notifications per day.
 | [16 — Apple Entitlement](docs/16-apple-entitlement-request.md) | Draft justification and submission checklist — **week 1 action** |
 | [17 — Week 1 Report](docs/17-phase-1-week-1-report.md) | What building it changed in the approved design |
 | [18 — Week 2 Art Review](docs/18-week-2-art-review.md) | **The R1 go/no-go, with rendered evidence and the art spec** |
+| [19 — Week 3 Report](docs/19-phase-1-week-3-report.md) | The hybrid Oak: attachment fix, atlas batching, validation |
 
 ## Decision records
 
