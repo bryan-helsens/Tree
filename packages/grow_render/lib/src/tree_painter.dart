@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
+import 'package:grow_domain/grow_domain.dart';
 import 'package:grow_flora/grow_flora.dart';
 
 import 'canopy_atlas.dart';
@@ -16,10 +17,25 @@ class TreeRenderer {
     this.wind = const WindField(),
     this.quality = RenderQuality.high,
     this.atlas,
+    this.haze,
+    this.hazeAmount = 0,
   });
 
   final WindField wind;
   final RenderQuality quality;
+
+  /// Aerial perspective: distant trees wash toward the sky's haze colour.
+  ///
+  /// Applied to the tree's own bark and foliage colours rather than as an
+  /// overlay. Overlaying a rectangle hazes whatever else happens to be inside
+  /// the tree's bounding box — the sky and the ground included — which shows
+  /// up as a grey panel around every distant tree.
+  final Color? haze;
+  final double hazeAmount;
+
+  Color _hazed(Color c) => hazeAmount <= 0 || haze == null
+      ? c
+      : Color.lerp(c, haze, hazeAmount.clamp(0.0, 1.0))!;
 
   /// How many overlapping sprites each foliage cluster contributes.
   static const int _spritesPerCluster = 3;
@@ -72,7 +88,7 @@ class TreeRenderer {
       final path = _branchPath(b, sway, state);
       // Lighter toward the tips: aerial perspective inside the canopy.
       final tone = (b.depth / (form.rules.maxDepth + 1)).clamp(0.0, 1.0);
-      final bark = Color(form.palette.barkColor(tone, state));
+      final bark = _hazed(Color(form.palette.barkColor(tone, state)));
       canvas.drawPath(
         path,
         Paint()
@@ -221,7 +237,9 @@ class TreeRenderer {
         // Outer foliage catches the light; the interior sits back.
         final shade = 0.80 + 0.20 * anchor.depth;
         colours.add(
-          _scale(form.palette.leafColor(anchor.tone, state), shade).withValues(
+          _hazed(
+            _scale(form.palette.leafColor(anchor.tone, state), shade),
+          ).withValues(
             alpha: (c.openness * (1.0 - state.bareness * 0.4)).clamp(0.0, 1.0),
           ),
         );
@@ -291,8 +309,9 @@ class TreeRenderer {
       // contrast is what turns a flat mass into a canopy with a near and a
       // far side.
       final shade = 0.58 + 0.46 * leaf.depth;
-      final base = form.palette.leafColor(leaf.tone, state);
-      final colour = _scale(base, shade);
+      final colour = _hazed(
+        _scale(form.palette.leafColor(leaf.tone, state), shade),
+      );
 
       _paintLeaf(
         canvas,

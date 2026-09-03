@@ -11,8 +11,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  grow_content: ^0.1.0
+  grow_domain: ^0.1.0
   grow_flora: ^0.1.0
   grow_render: ^0.1.0
+  grow_sim: ^0.1.0
 
 dev_dependencies:
   flutter_test:

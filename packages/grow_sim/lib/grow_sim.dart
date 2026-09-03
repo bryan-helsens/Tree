@@ -13,3 +13,4 @@ export 'src/sim_constants.dart';
 export 'src/sim_event.dart';
 export 'src/simulator.dart';
 export 'src/weather_oracle.dart';
+export 'src/world_snapshot.dart';

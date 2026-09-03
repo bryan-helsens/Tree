@@ -17,6 +17,10 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Test-only: the validation sheets drive the renderer from real simulation
+  # state, which is the whole point of them.
+  grow_content: ^0.1.0
+  grow_sim: ^0.1.0
   lints: ^6.0.0
 
 flutter:

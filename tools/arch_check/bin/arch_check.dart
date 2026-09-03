@@ -12,7 +12,15 @@ const allowed = <String, Set<String>>{
   'grow_content': {'grow_domain'},
   'grow_flora': {'grow_domain'},
   'grow_render': {'grow_domain', 'grow_flora'},
-  'tree_lab': {'grow_domain', 'grow_flora', 'grow_render'},
+  // A development tool, not shipped code: it is allowed to reach across the
+  // whole stack precisely so it can tune the real chain end to end.
+  'tree_lab': {
+    'grow_domain',
+    'grow_content',
+    'grow_sim',
+    'grow_flora',
+    'grow_render',
+  },
   'balance_sim': {'grow_domain', 'grow_content', 'grow_sim'},
   'arch_check': {},
 };

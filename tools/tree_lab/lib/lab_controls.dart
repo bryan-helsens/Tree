@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:grow_domain/grow_domain.dart';
 import 'package:grow_flora/grow_flora.dart';
 
 import 'lab_state.dart';
@@ -209,41 +210,41 @@ class LabControls extends StatelessWidget {
           (v) => state.updateRules(r.copyWith(canopyBias: v)),
         ),
 
-        _header('Condition'),
-        _foliageSlider(
-          'Droop',
-          state.foliage.droop,
-          (v) => _setFoliage(droop: v),
+        _header('Simulation'),
+        // These are the inputs the game actually has. Appearance comes back
+        // through the same projection the renderer uses, so what is tuned
+        // here is what ships.
+        _band('Water', state.water, state.species.water, state.setWater),
+        _band(
+          'Nutrition',
+          state.nutrition,
+          state.species.nutrition,
+          state.setNutrition,
         ),
-        _foliageSlider(
-          'Pallor',
-          state.foliage.pallor,
-          (v) => _setFoliage(pallor: v),
+        _slider('Health', state.health, 0, 100, state.setHealth, digits: 0),
+        _slider('Time of day', state.timeOfDay, 0, 1, state.setTimeOfDay),
+        Wrap(
+          spacing: 6,
+          children: [
+            for (final w in WeatherKind.values)
+              ChoiceChip(
+                label: Text(w.label, style: const TextStyle(fontSize: 11)),
+                selected: state.weather == w,
+                onSelected: (_) => state.setWeather(w),
+              ),
+          ],
         ),
-        _foliageSlider(
-          'Scorch',
-          state.foliage.scorch,
-          (v) => _setFoliage(scorch: v),
-        ),
-        _foliageSlider(
-          'Wetness',
-          state.foliage.wetness,
-          (v) => _setFoliage(wetness: v),
-        ),
-        _foliageSlider(
-          'Bareness',
-          state.foliage.bareness,
-          (v) => _setFoliage(bareness: v),
-        ),
-        _foliageSlider(
-          'Flowering',
-          state.foliage.flowering,
-          (v) => _setFoliage(flowering: v),
-        ),
-        _foliageSlider(
-          'Sparkle',
-          state.foliage.sparkle,
-          (v) => _setFoliage(sparkle: v),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Text(
+            state.readout,
+            style: const TextStyle(
+              fontSize: 11.5,
+              height: 1.5,
+              color: Color(0xFF2F6B4F),
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
         ),
 
         _header('View'),
@@ -262,6 +263,17 @@ class LabControls extends StatelessWidget {
           value: state.showSkeleton,
           onChanged: (_) => state.toggleSkeleton(),
         ),
+        SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Full world scene'),
+          subtitle: const Text(
+            'sky, light, weather, ground',
+            style: TextStyle(fontSize: 11),
+          ),
+          value: state.showWorld,
+          onChanged: (_) => state.toggleWorld(),
+        ),
 
         const SizedBox(height: 12),
         FilledButton.icon(
@@ -275,28 +287,59 @@ class LabControls extends StatelessWidget {
     );
   }
 
-  void _setFoliage({
-    double? droop,
-    double? pallor,
-    double? scorch,
-    double? wetness,
-    double? bareness,
-    double? flowering,
-    double? sparkle,
-  }) {
-    final f = state.foliage;
-    state.setFoliage(
-      FoliageState(
-        droop: droop ?? f.droop,
-        pallor: pallor ?? f.pallor,
-        scorch: scorch ?? f.scorch,
-        wetness: wetness ?? f.wetness,
-        bareness: bareness ?? f.bareness,
-        flowering: flowering ?? f.flowering,
-        sparkle: sparkle ?? f.sparkle,
-      ),
-    );
-  }
+  /// A slider that also draws the species' ideal range, the way the tree
+  /// panel does — tuning against the band is most of the point.
+  Widget _band(
+    String label,
+    double value,
+    Band band,
+    ValueChanged<double> on,
+  ) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 1),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 132,
+          child: Text(label, style: const TextStyle(fontSize: 12.5)),
+        ),
+        Expanded(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              LayoutBuilder(
+                builder: (context, c) => Container(
+                  margin: EdgeInsets.only(
+                    left: c.maxWidth * band.min / 100,
+                    right: c.maxWidth * (100 - band.max) / 100,
+                  ),
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0x332F6B4F),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              Slider(value: value.clamp(0, 100), max: 100, onChanged: on),
+            ],
+          ),
+        ),
+        SizedBox(
+          width: 46,
+          child: Text(
+            value.toStringAsFixed(0),
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 12,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: band.contains(value)
+                  ? const Color(0xFF2F6B4F)
+                  : const Color(0xFF8C3A2E),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _header(String s) => Padding(
     padding: const EdgeInsets.only(top: 18, bottom: 2),
@@ -319,12 +362,6 @@ class LabControls extends StatelessWidget {
     ValueChanged<double> onChanged, {
     int digits = 2,
   }) => _slider(label, value, min, max, onChanged, digits: digits);
-
-  Widget _foliageSlider(
-    String label,
-    double v,
-    ValueChanged<double> onChanged,
-  ) => _slider(label, v, 0, 1, onChanged);
 
   Widget _slider(
     String label,

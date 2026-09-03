@@ -2,4 +2,7 @@
 library;
 
 export 'src/canopy_atlas.dart';
+export 'src/forest_scene.dart';
+export 'src/forest_view.dart';
+export 'src/sky.dart';
 export 'src/tree_painter.dart';

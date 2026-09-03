@@ -9,6 +9,7 @@ export 'src/game_state.dart';
 export 'src/player/inventory.dart';
 export 'src/player/progression.dart';
 export 'src/tree/affliction.dart';
+export 'src/tree/foliage_state.dart';
 export 'src/tree/growth_stage.dart';
 export 'src/tree/health_state.dart';
 export 'src/tree/tree.dart';
