@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 
+import 'package:grow_content/grow_content.dart';
 import 'package:grow_domain/grow_domain.dart';
+
+import 'growth.dart';
 
 /// Focus-session yields.
 ///
@@ -169,19 +172,34 @@ class FocusYield {
 }
 
 /// Applies a completed session's yield to a save.
-GameState applyFocusYield(GameState state, FocusYield y, {TreeId? focusTree}) {
+///
+/// Returns the growth that actually landed alongside the new state. The
+/// injection goes through [addGrowth], the same path the simulator's own
+/// accrual takes, so a reward that finishes a stage carries over instead of
+/// being clipped at 100 — and a reward with nowhere to go is reported as zero
+/// rather than quietly promised.
+({GameState state, double growthApplied}) applyFocusYield(
+  GameState state,
+  FocusYield y, {
+  required ContentBundle content,
+  TreeId? focusTree,
+}) {
   final inv = state.inventory;
   final progressed = state.progression.addXp(y.xp);
 
-  final trees = [
-    for (final t in state.trees)
-      if (t.isAlive && (focusTree == null || t.id == focusTree))
-        t.copyWith(growth: Vital(t.growth.value + y.growthInjection))
-      else
-        t,
-  ];
+  var growthApplied = 0.0;
+  final trees = <Tree>[];
+  for (final t in state.trees) {
+    if (!t.isAlive || (focusTree != null && t.id != focusTree)) {
+      trees.add(t);
+      continue;
+    }
+    final grown = addGrowth(t, content[t.species], y.growthInjection);
+    growthApplied = math.max(growthApplied, grown.applied);
+    trees.add(grown.tree);
+  }
 
-  return state.copyWith(
+  final next = state.copyWith(
     trees: trees,
     inventory: inv.copyWith(
       water: math.min(inv.waterCap, inv.water + y.water),
@@ -194,4 +212,5 @@ GameState applyFocusYield(GameState state, FocusYield y, {TreeId? focusTree}) {
     progression: progressed.progression,
     lastInteractionAt: state.simTime,
   );
+  return (state: next, growthApplied: growthApplied);
 }

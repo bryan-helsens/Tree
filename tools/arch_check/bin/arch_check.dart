@@ -10,6 +10,7 @@ const allowed = <String, Set<String>>{
   'grow_domain': {},
   'grow_sim': {'grow_domain', 'grow_content'},
   'grow_content': {'grow_domain'},
+  'grow_data': {'grow_domain'},
   'grow_flora': {'grow_domain'},
   'grow_render': {'grow_domain', 'grow_flora'},
   // A development tool, not shipped code: it is allowed to reach across the

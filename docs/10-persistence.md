@@ -1,5 +1,21 @@
 # 10 — Save & Persistence
 
+> **Status (Week 6).** This document describes the shipping design. The vertical
+> slice does **not** implement it yet: `grow_data` currently persists the whole
+> `GameState` through a hand-written `SaveCodec` (JSON, `schemaVersion 1`) behind
+> a `SaveRepository` interface, with a single-writer queue and rotating backups.
+>
+> That is a deliberate slice-scoped choice, not a reversal of §1. The normalised
+> schema below buys partial writes, field-guide queries and sync-readiness — none
+> of which the slice has a use for — at the cost of schema ceremony and generated
+> code on a domain that is still moving weekly. The interface is the hedge: every
+> caller depends on `SaveRepository`, not on the codec, so the Drift
+> implementation below can be dropped in behind it without touching the game.
+>
+> **This needs an explicit decision before Phase 2**, because migrating players
+> off a v1 JSON save is work that grows with the install base. See
+> [docs/22 §Persistence](22-focus-session-architecture.md#persistence).
+
 ## 1. Choice: Drift (SQLite), not a JSON blob
 
 A single serialised save document is simpler for two weeks and a liability for two

@@ -57,6 +57,8 @@ notifications per day.
 | [19 — Week 3 Report](docs/19-phase-1-week-3-report.md) | The hybrid Oak: attachment fix, atlas batching, validation |
 | [20 — Week 4 Report](docs/20-phase-1-week-4-report.md) | Simulation-driven appearance, the world scene, accessibility |
 | [21 — Week 5 Report](docs/21-phase-1-week-5-report.md) | Simulation-first interaction, the tree panel, the first HUD |
+| [22 — Focus Session Architecture](docs/22-focus-session-architecture.md) | **The session state machine: states, transitions, crash recovery, clock defence** |
+| [23 — Week 6 Report](docs/23-phase-1-week-6-report.md) | The focus session machine, persistence, and what the balance harness said |
 
 ## Decision records
 

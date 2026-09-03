@@ -6,6 +6,7 @@
 library;
 
 export 'src/game_state.dart';
+export 'src/player/focus_session.dart';
 export 'src/player/inventory.dart';
 export 'src/player/progression.dart';
 export 'src/tree/affliction.dart';
@@ -14,6 +15,7 @@ export 'src/tree/growth_stage.dart';
 export 'src/tree/health_state.dart';
 export 'src/tree/tree.dart';
 export 'src/values/band.dart';
+export 'src/values/clock.dart';
 export 'src/values/ids.dart';
 export 'src/values/sim_time.dart';
 export 'src/values/vital.dart';

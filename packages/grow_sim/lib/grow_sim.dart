@@ -6,8 +6,11 @@
 library;
 
 export 'src/actions.dart';
+export 'src/clock_guard.dart';
 export 'src/comfort.dart';
 export 'src/economy.dart';
+export 'src/focus_machine.dart';
+export 'src/growth.dart';
 export 'src/rng.dart';
 export 'src/sim_constants.dart';
 export 'src/sim_event.dart';

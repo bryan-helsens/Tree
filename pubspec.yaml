@@ -5,6 +5,7 @@ environment:
 
 workspace:
   - apps/grow_app
+  - packages/grow_data
   - packages/grow_domain
   - packages/grow_content
   - packages/grow_flora

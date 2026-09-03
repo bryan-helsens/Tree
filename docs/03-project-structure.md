@@ -57,7 +57,7 @@ grow/
 │  ├─ grow_domain/          # entities, value objects. depends on: nothing
 │  ├─ grow_sim/             # simulator. depends on: grow_domain
 │  ├─ grow_content/         # data + loader. depends on: grow_domain
-│  ├─ grow_data/            # drift, repos. depends on: grow_domain
+│  ├─ grow_data/            # save codec + repository. depends on: grow_domain
 │  ├─ grow_render/          # flame world. depends on: grow_domain, flame, rive
 │  ├─ grow_focus/           # session orchestration. depends on: grow_domain, plugin iface
 │  ├─ grow_notifications/   # scheduling policy + platform adapter
@@ -87,7 +87,7 @@ grow/
 | `grow_domain` | *(nothing)* |
 | `grow_sim` | `grow_domain` |
 | `grow_content` | `grow_domain` |
-| `grow_data` | `grow_domain`, `drift` |
+| `grow_data` | `grow_domain` |
 | `grow_render` | `grow_domain`, `flutter`, `flame`, `rive` |
 | `grow_focus` | `grow_domain`, `grow_screen_time_platform_interface` |
 | `grow_app` | everything |

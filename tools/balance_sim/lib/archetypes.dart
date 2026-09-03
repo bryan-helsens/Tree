@@ -182,7 +182,10 @@ RunSummary runArchetype(
 }) {
   final simulator = Simulator(content: content);
   final actions = Actions(content);
-  const economy = FocusEconomy();
+  // Sessions go through the real state machine, so thirty days of modelled
+  // play exercises fatigue, streaks, the daily cap and acknowledgement
+  // exactly as a device would.
+  final focus = FocusMachine(content: content);
 
   var state = GameState.newGame(
     worldSeed: Seed(seed),
@@ -190,14 +193,11 @@ RunSummary runArchetype(
   );
 
   final records = <DayRecord>[];
-  var streak = 0;
 
   for (var day = 0; day < days; day++) {
     var sessionsToday = 0;
     var actionsToday = 0;
     var blockedToday = 0;
-    var gpToday = 0;
-    var deepUsed = false;
 
     if (archetype.isActiveOn(day)) {
       // The player opens the app a few times across the waking day.
@@ -247,29 +247,33 @@ RunSummary runArchetype(
           }
         }
 
-        // Then a focus session: the phone goes down for a while.
-        final y = economy.yieldFor(
-          minutes: archetype.sessionMinutes,
-          sessionIndexToday: sessionsToday,
-          streakDays: streak,
-          gpAlreadyEarnedToday: gpToday,
-          deepFocusBonusAlreadyUsed: deepUsed,
+        // Then a focus session, driven through the real state machine so the
+        // harness measures the shipped path: fatigue, streaks, the daily soft
+        // cap and the acknowledgement that gates the next session.
+        final started = focus.start(
+          state,
+          planned: Duration(minutes: archetype.sessionMinutes),
+          id: 'd$day-s$opening',
+          wallMs: 0,
         );
-        gpToday += y.growthPoints;
-        if (y.deepFocusBonus) deepUsed = true;
-        sessionsToday++;
-
-        state = simulator
-            .run(
-              state: state,
-              to: state.simTime + Duration(minutes: archetype.sessionMinutes),
-            )
-            .state;
-        state = applyFocusYield(state.touched(state.simTime), y);
+        if (started.ok) {
+          state = started.state!;
+          state = simulator
+              .run(
+                state: state,
+                to:
+                    state.simTime +
+                    Duration(minutes: archetype.sessionMinutes + 1),
+              )
+              .state;
+          final claimed = focus.claim(focus.evaluate(state));
+          if (claimed.ok) {
+            state = focus.dismiss(claimed.state!).state ?? claimed.state!;
+            sessionsToday++;
+          }
+          state = state.touched(state.simTime);
+        }
       }
-      streak = sessionsToday > 0 ? streak + 1 : 0;
-    } else {
-      streak = 0;
     }
 
     // Advance to the end of the day.

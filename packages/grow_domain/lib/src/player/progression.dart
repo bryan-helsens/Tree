@@ -1,5 +1,57 @@
 import 'dart:math' as math;
 
+/// One day's focus activity. Drives session fatigue and the daily soft cap.
+class DailyStats {
+  const DailyStats({
+    required this.dayIndex,
+    required this.sessionsCompleted,
+    required this.growthPointsEarned,
+    required this.deepFocusUsed,
+  });
+
+  const DailyStats.empty()
+    : dayIndex = -1,
+      sessionsCompleted = 0,
+      growthPointsEarned = 0,
+      deepFocusUsed = false;
+
+  final int dayIndex;
+  final int sessionsCompleted;
+  final int growthPointsEarned;
+  final bool deepFocusUsed;
+
+  /// A new day resets the counters. Rolling over here rather than at midnight
+  /// means no scheduled work and no dependence on the app being open.
+  DailyStats onDay(int day) =>
+      day == dayIndex ? this : DailyStats.empty().copyWith(dayIndex: day);
+
+  DailyStats copyWith({
+    int? dayIndex,
+    int? sessionsCompleted,
+    int? growthPointsEarned,
+    bool? deepFocusUsed,
+  }) => DailyStats(
+    dayIndex: dayIndex ?? this.dayIndex,
+    sessionsCompleted: sessionsCompleted ?? this.sessionsCompleted,
+    growthPointsEarned: growthPointsEarned ?? this.growthPointsEarned,
+    deepFocusUsed: deepFocusUsed ?? this.deepFocusUsed,
+  );
+
+  Map<String, Object?> toJson() => {
+    'dayIndex': dayIndex,
+    'sessionsCompleted': sessionsCompleted,
+    'growthPointsEarned': growthPointsEarned,
+    'deepFocusUsed': deepFocusUsed,
+  };
+
+  factory DailyStats.fromJson(Map<String, Object?> j) => DailyStats(
+    dayIndex: (j['dayIndex']! as num).toInt(),
+    sessionsCompleted: (j['sessionsCompleted']! as num).toInt(),
+    growthPointsEarned: (j['growthPointsEarned']! as num).toInt(),
+    deepFocusUsed: j['deepFocusUsed']! as bool,
+  );
+}
+
 /// Forest level and XP.
 ///
 /// `xpToNext(n) = round(90 · n^1.45)` — see docs/06-economy-and-progression.md §6.
@@ -12,6 +64,7 @@ class Progression {
     required this.longestStreak,
     required this.streakShields,
     required this.lastStreakDayIndex,
+    required this.today,
   });
 
   const Progression.starting()
@@ -20,7 +73,8 @@ class Progression {
       focusStreakDays = 0,
       longestStreak = 0,
       streakShields = 1,
-      lastStreakDayIndex = -1;
+      lastStreakDayIndex = -1,
+      today = const DailyStats.empty();
 
   final int level;
   final int xp;
@@ -31,6 +85,9 @@ class Progression {
   /// silently and the player is told afterwards — never warned beforehand.
   final int streakShields;
   final int lastStreakDayIndex;
+
+  /// Today's focus activity.
+  final DailyStats today;
 
   static const int maxShields = 1;
 
@@ -72,6 +129,7 @@ class Progression {
     int? longestStreak,
     int? streakShields,
     int? lastStreakDayIndex,
+    DailyStats? today,
   }) => Progression(
     level: level ?? this.level,
     xp: xp ?? this.xp,
@@ -79,6 +137,7 @@ class Progression {
     longestStreak: longestStreak ?? this.longestStreak,
     streakShields: streakShields ?? this.streakShields,
     lastStreakDayIndex: lastStreakDayIndex ?? this.lastStreakDayIndex,
+    today: today ?? this.today,
   );
 
   @override

@@ -1,6 +1,8 @@
+import 'player/focus_session.dart';
 import 'player/inventory.dart';
 import 'player/progression.dart';
 import 'tree/tree.dart';
+import 'values/clock.dart';
 import 'values/ids.dart';
 import 'values/sim_time.dart';
 
@@ -17,6 +19,8 @@ class GameState {
     required this.progression,
     required this.lastInteractionAt,
     required this.biome,
+    this.session,
+    this.clock = const ClockMeta.initial(),
   });
 
   factory GameState.newGame({
@@ -64,6 +68,15 @@ class GameState {
 
   final BiomeId biome;
 
+  /// The focus session, if there is one.
+  ///
+  /// It lives inside the save on purpose. Committing a session's reward and
+  /// marking it claimed then happen in a single state transition, so a crash
+  /// can leave the pair consistent but never half-applied.
+  final FocusSession? session;
+
+  final ClockMeta clock;
+
   Iterable<Tree> get livingTrees => trees.where((t) => t.isAlive);
 
   Tree? treeById(TreeId id) {
@@ -83,6 +96,7 @@ class GameState {
     Inventory? inventory,
     Progression? progression,
     SimTime? lastInteractionAt,
+    ClockMeta? clock,
   }) => GameState(
     worldSeed: worldSeed,
     simTime: simTime ?? this.simTime,
@@ -91,6 +105,22 @@ class GameState {
     progression: progression ?? this.progression,
     lastInteractionAt: lastInteractionAt ?? this.lastInteractionAt,
     biome: biome,
+    session: session,
+    clock: clock ?? this.clock,
+  );
+
+  /// Session changes go through here rather than `copyWith`, so clearing one
+  /// is explicit and can never happen by omission.
+  GameState withSession(FocusSession? next) => GameState(
+    worldSeed: worldSeed,
+    simTime: simTime,
+    trees: trees,
+    inventory: inventory,
+    progression: progression,
+    lastInteractionAt: lastInteractionAt,
+    biome: biome,
+    session: next,
+    clock: clock,
   );
 
   /// Marks the player as present. Clears dormancy accrual from this moment on.

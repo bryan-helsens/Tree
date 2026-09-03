@@ -13,6 +13,7 @@ dependencies:
     sdk: flutter
   flutter_riverpod: ^2.6.1
   grow_content: ^0.1.0
+  grow_data: ^0.1.0
   grow_domain: ^0.1.0
   grow_flora: ^0.1.0
   grow_render: ^0.1.0

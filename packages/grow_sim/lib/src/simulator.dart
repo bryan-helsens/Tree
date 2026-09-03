@@ -4,6 +4,7 @@ import 'package:grow_content/grow_content.dart';
 import 'package:grow_domain/grow_domain.dart';
 
 import 'comfort.dart';
+import 'growth.dart';
 import 'rng.dart';
 import 'sim_constants.dart';
 import 'sim_event.dart';
@@ -339,11 +340,16 @@ class Simulator {
         (100.0 / hours) *
         math.pow(comfort.overall, constants.growthComfortExponent) *
         _healthGate(tree.health.value);
-    // Growth never reverses: damage costs time, not progress.
-    final g = tree.growth.value + rate * dtHours;
 
-    if (g >= 100.0) {
-      final nextStage = tree.stage.next;
+    // Growth never reverses: damage costs time, not progress. Applied through
+    // the shared path so accrual and session rewards cross stage boundaries
+    // identically — see growth.dart.
+    final grown = addGrowth(tree, species, rate * dtHours);
+    if (grown.stagesGained == 0) return grown.tree;
+
+    var stage = tree.stage;
+    for (var i = 0; i < grown.stagesGained; i++) {
+      stage = stage.next;
       onStageUp();
       journal.add(
         SimEvent(
@@ -351,12 +357,11 @@ class Simulator {
           at: now,
           treeId: tree.id,
           message:
-              '${species.displayName} became a ${nextStage.label.toLowerCase()}',
+              '${species.displayName} became a ${stage.label.toLowerCase()}',
         ),
       );
-      return tree.copyWith(stage: nextStage, growth: Vital.zero);
     }
-    return tree.copyWith(growth: Vital(g));
+    return grown.tree;
   }
 
   Tree _applyState(
