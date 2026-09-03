@@ -22,6 +22,14 @@ const allowed = <String, Set<String>>{
     'grow_render',
   },
   'balance_sim': {'grow_domain', 'grow_content', 'grow_sim'},
+  // The application shell composes everything; nothing may depend on it.
+  'grow_app': {
+    'grow_domain',
+    'grow_content',
+    'grow_sim',
+    'grow_flora',
+    'grow_render',
+  },
   'arch_check': {},
 };
 

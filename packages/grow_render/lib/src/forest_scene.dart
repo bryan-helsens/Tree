@@ -47,8 +47,30 @@ class ForestScene {
   final CanopyAtlas? atlas;
   final RenderQuality quality;
 
-  static const double horizonFraction = 0.62;
-  static const double groundFraction = 0.72;
+  static const double horizonFraction = 0.66;
+  static const double groundFraction = 0.78;
+
+  /// Where a tree stands and how big it reads, given its plot position.
+  ///
+  /// **The single source of placement.** The painter and the accessibility
+  /// layer both call this. They previously each carried their own copy of the
+  /// arithmetic, and the copies drifted — which silently puts every semantic
+  /// node in the wrong place. One function, or they disagree.
+  static ({double x, double baseY, double scale}) placeTree(
+    Size size,
+    double groundX,
+    double depth,
+  ) {
+    final groundY = size.height * groundFraction;
+    return (
+      x: size.width * groundX,
+      // Further back stands higher on the plot.
+      baseY: groundY + (size.height - groundY) * (1 - depth) * 0.5,
+      // Tuned for a phone held in portrait: the tree should feel close enough
+      // to touch, not photographed from across a field.
+      scale: (1.0 - depth * 0.42) * (size.height / 380).clamp(0.55, 2.6),
+    );
+  }
 
   void paint(
     Canvas canvas,
@@ -153,16 +175,12 @@ class ForestScene {
     double t, {
     bool conditionsFog = false,
   }) {
-    final groundY = size.height * groundFraction;
-    // Further back sits higher on the plot and reads smaller.
-    final baseY =
-        groundY + (size.height - groundY) * (1 - placement.depth) * 0.5;
-    final scale =
-        (1.0 - placement.depth * 0.42) * (size.height / 620).clamp(0.5, 1.6);
+    // The same call ForestView.treeRect makes. Not a copy of it.
+    final where = placeTree(size, placement.groundX, placement.depth);
 
     canvas.save();
-    canvas.translate(size.width * placement.groundX, baseY);
-    canvas.scale(scale);
+    canvas.translate(where.x, where.baseY);
+    canvas.scale(where.scale);
 
     _shadow(canvas, placement, sky);
 

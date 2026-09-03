@@ -21,6 +21,7 @@ class TreeVisual {
     required this.comfort,
     required this.label,
     required this.detail,
+    required this.ageReference,
   });
 
   final TreeId id;
@@ -43,6 +44,10 @@ class TreeVisual {
   /// The full spoken description, built once here rather than in a widget so
   /// it is testable without pumping a frame.
   final String detail;
+
+  /// The simulated instant this visual was taken at. The UI needs it to show
+  /// an age without reading a real clock — nothing outside TimeAuthority may.
+  final SimTime ageReference;
 }
 
 /// A flattened, render-oriented projection of the simulation.
@@ -120,6 +125,7 @@ class WorldProjector {
       comfort: comfort.overall,
       label: '${species.displayName}, ${tree.stage.label.toLowerCase()}',
       detail: describe(tree, species, comfort),
+      ageReference: now,
     );
   }
 

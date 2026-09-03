@@ -1,8 +1,8 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
+import 'package:flutter/services.dart';
 
 /// The canopy sprite atlas: a grid of leaf-mass tiles drawn once and blitted
 /// many times.
@@ -231,3 +231,17 @@ class _Rng {
   double range(double a, double b) => a + unit() * (b - a);
   int nextInt(int max) => _next() % max;
 }
+
+/// Loads a species' baked canopy atlas from the render package's assets.
+Future<CanopyAtlas> loadCanopyAtlas(String speciesId) async {
+  final data = await rootBundle.load(
+    'packages/grow_render/assets/canopy_${_shortName(speciesId)}.png',
+  );
+  return CanopyAtlas.decode(data.buffer.asUint8List());
+}
+
+String _shortName(String speciesId) => switch (speciesId) {
+  'quercus_robur' => 'oak',
+  'betula_pendula' => 'birch',
+  _ => throw ArgumentError('no canopy atlas for "$speciesId"'),
+};

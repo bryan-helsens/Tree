@@ -2,7 +2,7 @@
 
 > A living forest that rewards you for putting your phone down.
 
-**Status: Phase 1, Week 4 complete — world scene wired to the simulation.** Architecture approved
+**Status: Phase 1, Week 5 complete — interaction, tree panel and HUD.** Architecture approved
 2026-09-02. The simulation core, content pipeline and balance harness are built
 and under test; no UI yet.
 
@@ -56,6 +56,7 @@ notifications per day.
 | [18 — Week 2 Art Review](docs/18-week-2-art-review.md) | **The R1 go/no-go, with rendered evidence and the art spec** |
 | [19 — Week 3 Report](docs/19-phase-1-week-3-report.md) | The hybrid Oak: attachment fix, atlas batching, validation |
 | [20 — Week 4 Report](docs/20-phase-1-week-4-report.md) | Simulation-driven appearance, the world scene, accessibility |
+| [21 — Week 5 Report](docs/21-phase-1-week-5-report.md) | Simulation-first interaction, the tree panel, the first HUD |
 
 ## Decision records
 

@@ -118,6 +118,31 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('placement has exactly one implementation', (tester) async {
+    // The painter and the accessibility layer must agree on where a tree is,
+    // or every semantic node sits somewhere the tree is not. They did drift
+    // once: the painter kept its own copy of this arithmetic and the two
+    // diverged silently. This pins them to the same call.
+    const size = Size(800, 600);
+    for (final depth in [0.0, 0.35, 0.8]) {
+      for (final x in [0.2, 0.5, 0.9]) {
+        final t = tree('a', x: x, depth: depth);
+        final where = ForestScene.placeTree(size, x, depth);
+        final rect = ForestView.treeRect(t, size);
+        final b = t.skeleton.bounds;
+
+        // The drawn tree's foot is the semantic node's bottom edge, and its
+        // horizontal centre matches, up to the minimum-target expansion.
+        expect(rect.bottom, closeTo(where.baseY, 0.001));
+        final drawnWidth = (b.maxX - b.minX) * where.scale;
+        if (drawnWidth >= ForestView.minimumTapTarget) {
+          expect(rect.left, closeTo(where.x + b.minX * where.scale, 0.001));
+          expect(rect.right, closeTo(where.x + b.maxX * where.scale, 0.001));
+        }
+      }
+    }
+  });
+
   testWidgets('a distant tree is drawn smaller than a near one', (
     tester,
   ) async {

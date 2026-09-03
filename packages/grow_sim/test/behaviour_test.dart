@@ -444,6 +444,23 @@ void main() {
       expect(r.error!.message, isNotEmpty);
     });
 
+    test('a preview warns about overshooting, not about falling short', () {
+      // Watering a parched tree that ends up still below ideal is progress,
+      // not a risk. Warning there teaches the player to ignore warnings.
+      final actions = Actions(content);
+      final parched = established(water: 20);
+      final preview = actions.previewWater(only(parched));
+      expect(
+        preview.to,
+        lessThan(content[oak].water.min),
+        reason: 'test setup: one watering should not reach the band',
+      );
+      expect(preview.leavesBand, isFalse);
+
+      final nearlyFull = established(water: 66);
+      expect(actions.previewWater(only(nearlyFull)).leavesBand, isTrue);
+    });
+
     test('preview reports entering the band as well as leaving it', () {
       final actions = Actions(content);
       final dry = established(water: 40);

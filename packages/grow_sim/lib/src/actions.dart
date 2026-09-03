@@ -36,6 +36,12 @@ class ActionPreview {
 
   final double from;
   final double to;
+
+  /// True when the action would push the vital *past the top* of the band.
+  ///
+  /// Not "would end up outside the band": watering a parched tree from 26 to
+  /// 37 leaves it below the ideal range, and that is not a risk — it is
+  /// progress. Warning there would teach the player to distrust the warning.
   final bool leavesBand;
 
   /// True when the action moves the tree *into* its ideal band.
@@ -54,7 +60,7 @@ class Actions {
     return ActionPreview(
       from: tree.water.value,
       to: to,
-      leavesBand: !species.water.contains(to),
+      leavesBand: to > species.water.max,
       enters:
           !species.water.contains(tree.water.value) &&
           species.water.contains(to),
@@ -67,7 +73,7 @@ class Actions {
     return ActionPreview(
       from: tree.nutrition.value,
       to: to,
-      leavesBand: !species.nutrition.contains(to),
+      leavesBand: to > species.nutrition.max,
       enters:
           !species.nutrition.contains(tree.nutrition.value) &&
           species.nutrition.contains(to),
