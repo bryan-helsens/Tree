@@ -284,6 +284,140 @@ void main() {
     });
   });
 
+  group('resume is idempotent', () {
+    // Not the same as relaunching: this is one controller, asked to resume
+    // more than once — a lifecycle callback firing twice, a retry after an
+    // ambiguous failure, a hot restart.
+    test('calling it repeatedly credits nothing extra', () async {
+      final store = GuardedSaveRepository(InMemorySaveRepository());
+      final clock = FakeTimeAuthority();
+      final game = await launch(store, clock);
+
+      clock.advance(const Duration(hours: 3));
+      await game.resume();
+
+      final afterFirst = game.state;
+      expect(afterFirst.simTime.ms, greaterThan(0));
+
+      // No clock movement between them, so there is no time to credit.
+      await game.resume();
+      await game.resume();
+
+      expect(game.state.simTime.ms, afterFirst.simTime.ms);
+      expect(
+        game.state.trees.first.growth.value,
+        afterFirst.trees.first.growth.value,
+      );
+      expect(game.state.inventory.water, afterFirst.inventory.water);
+    });
+
+    test(
+      'a finished session is claimed once across repeated resumes',
+      () async {
+        final store = GuardedSaveRepository(InMemorySaveRepository());
+        final clock = FakeTimeAuthority();
+        final game = await launch(store, clock);
+
+        await game.startSession(const Duration(minutes: 30));
+        clock.advance(const Duration(minutes: 31));
+
+        await game.resume();
+        final water = game.state.inventory.water;
+        final outcome = game.lastReturn.sessionOutcome;
+        expect(outcome, isNotNull);
+
+        await game.resume();
+        await game.resume();
+
+        expect(game.state.inventory.water, water, reason: 'paid twice');
+        expect(game.state.session!.phase, FocusPhase.claimed);
+      },
+    );
+  });
+
+  group('a session is exactly one growth transaction', () {
+    test('the injection lands once, however many times we relaunch', () async {
+      final store = GuardedSaveRepository(InMemorySaveRepository());
+      final clock = FakeTimeAuthority();
+      var game = await launch(store, clock);
+
+      await game.startSession(const Duration(minutes: 45));
+      clock.advance(const Duration(minutes: 46));
+
+      // The launch that claims it.
+      game = await launch(store, clock);
+      final injected = game.lastReturn.sessionOutcome!.growthInjection;
+      expect(injected, greaterThan(0));
+      final absolute = _absoluteGrowth(game.state.trees.first);
+
+      // Relaunch twice more with the clock frozen: no simulated time passes,
+      // so any movement at all would be a second injection.
+      game = await launch(store, clock);
+      expect(_absoluteGrowth(game.state.trees.first), closeTo(absolute, 1e-9));
+
+      game = await launch(store, clock);
+      expect(_absoluteGrowth(game.state.trees.first), closeTo(absolute, 1e-9));
+      expect(game.lastReturn.sessionOutcome, isNull, reason: 'claimed again');
+    });
+
+    test('growth crossing a stage boundary is carried, not clipped', () async {
+      final store = GuardedSaveRepository(InMemorySaveRepository());
+      final clock = FakeTimeAuthority();
+      final almost = fresh();
+      var game = await launch(
+        store,
+        clock,
+        seed: almost.copyWith(
+          trees: [almost.trees.first.copyWith(growth: Vital(98))],
+        ),
+      );
+
+      await game.startSession(const Duration(minutes: 45));
+      clock.advance(const Duration(minutes: 46));
+      game = await launch(store, clock);
+
+      final tree = game.state.trees.first;
+      // It moved on rather than parking at 100 with the remainder discarded.
+      expect(tree.stage, GrowthStage.young);
+      expect(tree.growth.value, lessThan(100));
+    });
+  });
+
+  group('a fully grown tree', () {
+    test('is paid, but gains no phantom progression', () async {
+      final store = GuardedSaveRepository(InMemorySaveRepository());
+      final clock = FakeTimeAuthority();
+      final base = fresh();
+      var game = await launch(
+        store,
+        clock,
+        seed: base.copyWith(
+          trees: [
+            base.trees.first.copyWith(
+              stage: GrowthStage.ancient,
+              growth: Vital.zero,
+            ),
+          ],
+        ),
+      );
+
+      final waterBefore = game.state.inventory.water;
+      await game.startSession(const Duration(minutes: 45));
+      clock.advance(const Duration(minutes: 46));
+      game = await launch(store, clock);
+
+      final outcome = game.lastReturn.sessionOutcome!;
+      // The completion screen must not promise growth the tree cannot make.
+      expect(outcome.growthInjection, 0);
+      // And no invisible counter creeps up behind it.
+      expect(game.state.trees.first.stage, GrowthStage.ancient);
+      expect(game.state.trees.first.growth.value, 0);
+      // Everything else is still earned. The time was still spent.
+      expect(game.state.inventory.water, greaterThan(waterBefore));
+      expect(outcome.xp, greaterThan(0));
+    });
+  });
+
   group('the return summary', () {
     test('reports the away time and what happened', () async {
       final store = GuardedSaveRepository(InMemorySaveRepository());
@@ -311,3 +445,6 @@ void main() {
     });
   });
 }
+
+/// Stage plus progress within it, so a stage-up is not read as a reset.
+double _absoluteGrowth(Tree t) => t.stage.index * 100.0 + t.growth.value;

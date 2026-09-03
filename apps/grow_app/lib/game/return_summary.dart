@@ -43,5 +43,35 @@ class ReturnSummary {
   double growthFor(TreeId id) => digest?.growthByTree[id] ?? 0;
 
   /// The handful of things worth saying, most significant first.
-  List<SimEvent> get highlights => journal.take(4).toList();
+  ///
+  /// Sorted by [SimEvent.significance], not by time. A player who was away
+  /// two days has a journal full of rainfall; the one thing they want to know
+  /// is that their oak became a sapling, and it must not be pushed off the
+  /// end of the list by weather.
+  List<SimEvent> get highlights {
+    final ranked = [...journal]
+      ..sort((a, b) {
+        final bySignificance = b.significance.compareTo(a.significance);
+        return bySignificance != 0
+            ? bySignificance
+            : b.at.ms.compareTo(a.at.ms);
+      });
+    return ranked.take(3).toList();
+  }
+
+  /// How long the player was away, in words rather than a measurement.
+  ///
+  /// "You were away for 187 minutes" is a productivity report. This is the
+  /// difference between the game noticing you were gone and the game timing
+  /// you, and it is the whole tone of the return screen.
+  String get awayInWords {
+    final minutes = away.inMinutes;
+    if (minutes < 45) return 'a little while';
+    if (minutes < 90) return 'about an hour';
+    if (away.inHours < 5) return 'a few hours';
+    if (away.inHours < 10) return 'most of the day';
+    if (away.inHours < 30) return 'a day';
+    final days = (away.inHours / 24).round();
+    return days >= 7 ? 'over a week' : '$days days';
+  }
 }

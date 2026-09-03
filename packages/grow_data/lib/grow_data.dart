@@ -5,4 +5,5 @@
 library;
 
 export 'src/save_codec.dart';
+export 'src/save_format.dart';
 export 'src/save_repository.dart';

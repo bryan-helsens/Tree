@@ -59,6 +59,7 @@ notifications per day.
 | [21 — Week 5 Report](docs/21-phase-1-week-5-report.md) | Simulation-first interaction, the tree panel, the first HUD |
 | [22 — Focus Session Architecture](docs/22-focus-session-architecture.md) | **The session state machine: states, transitions, crash recovery, clock defence** |
 | [23 — Week 6 Report](docs/23-phase-1-week-6-report.md) | The focus session machine, persistence, and what the balance harness said |
+| [24 — Week 7 Report](docs/24-phase-1-week-7-report.md) | The focus session experience, the welcome-back moment, the persistence decision |
 
 ## Decision records
 
@@ -66,3 +67,4 @@ notifications per day.
 - [ADR-0002 — Procedural trees over sprite stages](docs/adr/0002-procedural-trees.md)
 - [ADR-0003 — Soft enforcement of focus sessions](docs/adr/0003-soft-enforcement.md)
 - [ADR-0004 — No per-app screen time data, ever](docs/adr/0004-aggregate-only-screen-time.md)
+- [ADR-0005 — JSON is the pre-release save format; Drift is the release format](docs/adr/0005-json-save-format.md)

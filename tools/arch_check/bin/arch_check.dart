@@ -28,6 +28,7 @@ const allowed = <String, Set<String>>{
     'grow_domain',
     'grow_content',
     'grow_sim',
+    'grow_data',
     'grow_flora',
     'grow_render',
   },
@@ -36,7 +37,19 @@ const allowed = <String, Set<String>>{
 
 /// Packages that legitimately draw or build UI. Everything else must stay
 /// device-free so it can be tested headlessly.
-const rendererPackages = {'grow_render', 'tree_lab'};
+const rendererPackages = {'grow_render', 'tree_lab', 'grow_app'};
+
+/// Files exempt from a banned API, named one at a time.
+///
+/// An exemption is a design seam, so it is worth the friction of naming the
+/// exact file: adding a second one has to be an edit to this list, which is a
+/// conversation, rather than a quiet import.
+const clockSeams = {
+  // The single place a real clock is read. Everything downstream receives
+  // elapsed time as an argument, which is what makes the simulation testable
+  // and the focus session tamper-resistant (docs/22 §11).
+  'apps/grow_app/lib/game/time_authority.dart',
+};
 
 /// Banned in library code, with the reason a reviewer needs.
 const bannedImports = <({String needle, String why, Set<String> except})>[
@@ -52,21 +65,26 @@ const bannedImports = <({String needle, String why, Set<String> except})>[
   ),
 ];
 
-const bannedApis = <({String pattern, String why})>[
+const bannedApis = <({String pattern, String why, Set<String> except})>[
   (
     pattern: r'DateTime\.now\(\s*\)',
     why: 'reads a real clock; elapsed time must arrive as an argument',
+    except: clockSeams,
   ),
   (
     pattern: r'(?<![\w.])Random\(\s*\)',
     why: 'unseeded randomness breaks determinism; use Xorshift128',
+    except: {},
   ),
 ];
 
 void main() {
   final failures = <String>[];
 
-  for (final root in ['packages', 'tools']) {
+  // `apps` is scanned too. It was not, for five weeks, which meant the one
+  // package that composes the whole stack — and where a boundary is easiest to
+  // cross by accident — was the only one exempt from the rules.
+  for (final root in ['packages', 'tools', 'apps']) {
     final dir = Directory(root);
     if (!dir.existsSync()) continue;
 
@@ -101,7 +119,9 @@ void main() {
             failures.add('${file.path}\n      ${rule.why}');
           }
         }
+        final normalised = file.path.replaceAll(Platform.pathSeparator, '/');
         for (final rule in bannedApis) {
+          if (rule.except.any(normalised.endsWith)) continue;
           if (RegExp(rule.pattern).hasMatch(code)) {
             failures.add('${file.path}\n      ${rule.why}');
           }

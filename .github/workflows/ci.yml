@@ -43,10 +43,12 @@ jobs:
             (cd "$pkg" && dart test --reporter=expanded)
           done
           (cd packages/grow_render && flutter test test/bench_test.dart)
-          # Crash recovery and the interaction chain. Both are fast; the
-          # screenshot test is not, and is run locally.
+          # Crash recovery, the interaction chain and the focus surface. All
+          # fast; the screenshot test is not, and is run locally.
           (cd apps/grow_app && flutter test test/session_recovery_test.dart \
-                                           test/interaction_flow_test.dart)
+                                           test/interaction_flow_test.dart \
+                                           test/focus_ui_test.dart \
+                                           test/focus_flow_test.dart)
 
       # Milestone M1: a headless 30-day simulation runs in CI and emits a CSV.
       # Exits non-zero if any balance ship criterion regresses, so the economy

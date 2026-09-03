@@ -288,6 +288,37 @@ did not happen.
 
 ---
 
+## The presentation boundary
+
+Added in Week 7, and the reason the UI cannot become a second source of truth.
+
+`FocusView.of(GameState)` is a projection in the same sense as
+`WorldProjector`: it reads the save and reports what belongs on screen —
+`FocusIdle`, `FocusRunning`, `FocusSettling`, `FocusFinished`. Every focus
+widget is a pure function of it.
+
+So **no widget knows whether a session is running**; it asks. There is exactly
+one place that decides, and it is the same place the simulator and the
+persistence layer read from. The completion panel receives a `SessionOutcome`
+and has nothing to write with.
+
+`FocusSettling` exists for the gap between a session finishing and its reward
+being committed. In practice it lasts one frame — the controller settles on the
+next advance — but a frame can land there, and it must not flash the idle
+surface at someone who just finished.
+
+Two things are genuinely local to the interface, and both are honest:
+
+- The duration a player is scrolling through in the picker. That is not a
+  session and not domain state; it becomes both the instant `start()` is called.
+- Whether a sheet is open.
+
+The **drawn** size of a tree also lags its domain value, because a reward that
+lands as a step change would otherwise pop. The domain value is still the
+truth; only its display eases toward it, exactly as foliage already did.
+
+---
+
 ## Persistence
 
 `packages/grow_data` owns the save and depends only on `grow_domain`.

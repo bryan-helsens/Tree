@@ -1,20 +1,20 @@
 # 10 — Save & Persistence
 
-> **Status (Week 6).** This document describes the shipping design. The vertical
-> slice does **not** implement it yet: `grow_data` currently persists the whole
-> `GameState` through a hand-written `SaveCodec` (JSON, `schemaVersion 1`) behind
-> a `SaveRepository` interface, with a single-writer queue and rotating backups.
+> **Status (Week 7) — decided, see [ADR-0005](adr/0005-json-save-format.md).**
 >
-> That is a deliberate slice-scoped choice, not a reversal of §1. The normalised
-> schema below buys partial writes, field-guide queries and sync-readiness — none
-> of which the slice has a use for — at the cost of schema ceremony and generated
-> code on a domain that is still moving weekly. The interface is the hedge: every
-> caller depends on `SaveRepository`, not on the codec, so the Drift
-> implementation below can be dropped in behind it without touching the game.
+> This document describes the **release** persistence design. It is not what is
+> implemented. `grow_data` persists the whole `GameState` as one JSON document
+> through `SaveCodec`, behind a `SaveRepository` interface.
 >
-> **This needs an explicit decision before Phase 2**, because migrating players
-> off a v1 JSON save is work that grows with the install base. See
-> [docs/22 §Persistence](22-focus-session-architecture.md#persistence).
+> That is now a recorded decision rather than a drift: **JSON is the pre-release
+> format, Drift is the release format, and the boundary is the first build
+> handed to anyone outside the team.** `SaveFormat.released` holds that boundary
+> as data, and `save_format_test.dart` fails the build if a released version
+> ever loses its migration path. ADR-0005 has the cutover plan and the checklist
+> that must be green before a first release.
+>
+> Everything below stands as the target. Read it as specification, not as
+> description.
 
 ## 1. Choice: Drift (SQLite), not a JSON blob
 

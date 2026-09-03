@@ -2,18 +2,21 @@ import 'dart:convert';
 
 import 'package:grow_domain/grow_domain.dart';
 
+import 'save_format.dart';
+
 /// Turns a save into a document and back.
 ///
 /// The whole `GameState` is one value, so a save is one write. That is what
 /// makes a focus session's reward and its claim atomic without a transaction
 /// manager: they are fields of the same object.
 ///
-/// The document carries a [schemaVersion]. A save from a future version is
+/// The document carries a schema version and is brought forward through
+/// [SaveFormat.migrate] before it is read. A save from a *future* version is
 /// refused rather than half-read.
 class SaveCodec {
   const SaveCodec();
 
-  static const int schemaVersion = 1;
+  static int get schemaVersion => SaveFormat.version;
 
   String encode(GameState state) => jsonEncode(toJson(state));
 
@@ -33,11 +36,10 @@ class SaveCodec {
     'session': s.session?.toJson(),
   };
 
-  GameState fromJson(Map<String, Object?> j) {
-    final version = (j['schemaVersion'] as num?)?.toInt() ?? 0;
-    if (version > schemaVersion) {
-      throw SaveVersionError(version, schemaVersion);
-    }
+  GameState fromJson(Map<String, Object?> raw) {
+    // Older documents are brought forward here, so everything below may assume
+    // the current shape. Refusal for a newer version happens inside migrate.
+    final j = SaveFormat.migrate(raw);
     return GameState(
       worldSeed: Seed((j['worldSeed']! as num).toInt()),
       simTime: SimTime((j['simTimeMs']! as num).toInt()),
@@ -178,15 +180,4 @@ class SaveCodec {
         (v) => v.name == name,
         orElse: () => throw ArgumentError('unknown value "$name"'),
       );
-}
-
-/// A save written by a newer build than this one.
-class SaveVersionError implements Exception {
-  const SaveVersionError(this.found, this.supported);
-  final int found;
-  final int supported;
-
-  @override
-  String toString() =>
-      'Save is version $found; this build understands up to $supported.';
 }

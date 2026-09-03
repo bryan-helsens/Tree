@@ -30,8 +30,13 @@ class ForestHud extends StatelessWidget {
   /// One line under the focus button. Kept short and never a countdown.
   final String? focusHint;
 
-  /// Hidden while a tree panel is open, so there is only ever one primary
-  /// action on screen.
+  /// Hidden while a sheet is open, so there is only ever one primary action
+  /// on screen.
+  ///
+  /// This flag was accepted and never read for two weeks, which is what the
+  /// "ghost focus call behind the open sheet" was: not a rendering artifact,
+  /// a `const` that nothing consumed. A parameter that does nothing is worse
+  /// than a missing one — it reads as a decision that was made.
   final bool showCall;
 
   @override
@@ -72,15 +77,16 @@ class ForestHud extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            GrowTokens.lg,
-            0,
-            GrowTokens.lg,
-            GrowTokens.lg,
+        if (showCall)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              GrowTokens.lg,
+              0,
+              GrowTokens.lg,
+              GrowTokens.lg,
+            ),
+            child: _FocusCall(onPressed: onStartFocus, hint: focusHint),
           ),
-          child: _FocusCall(onPressed: onStartFocus, hint: focusHint),
-        ),
       ],
     ),
   );
